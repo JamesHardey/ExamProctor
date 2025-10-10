@@ -109,6 +109,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/questions/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertQuestionSchema.parse(req.body);
+      const question = await storage.updateQuestion(id, validatedData);
+      if (!question) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+      res.json(question);
+    } catch (error: any) {
+      console.error("Error updating question:", error);
+      res.status(400).json({ message: error.message || "Failed to update question" });
+    }
+  });
+
+  app.delete("/api/questions/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteQuestion(id);
+      res.json({ message: "Question deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting question:", error);
+      res.status(400).json({ message: error.message || "Failed to delete question" });
+    }
+  });
+
   // Exam routes
   app.get("/api/exams", isAuthenticated, async (req, res) => {
     try {

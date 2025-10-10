@@ -49,6 +49,8 @@ export interface IStorage {
   getQuestionsByDomain(domainId: number): Promise<Question[]>;
   getQuestion(id: number): Promise<Question | undefined>;
   createQuestion(question: InsertQuestion): Promise<Question>;
+  updateQuestion(id: number, question: InsertQuestion): Promise<Question | undefined>;
+  deleteQuestion(id: number): Promise<void>;
 
   // Exam operations
   getExams(): Promise<Exam[]>;
@@ -222,6 +224,22 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return question;
+  }
+
+  async updateQuestion(id: number, questionData: InsertQuestion): Promise<Question | undefined> {
+    const [question] = await db
+      .update(questions)
+      .set({
+        ...questionData,
+        options: questionData.options as any,
+      })
+      .where(eq(questions.id, id))
+      .returning();
+    return question;
+  }
+
+  async deleteQuestion(id: number): Promise<void> {
+    await db.delete(questions).where(eq(questions.id, id));
   }
 
   // Exam operations
