@@ -16,6 +16,7 @@ import SetPasswordPage from "@/pages/set-password";
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
 import ExamsPage from "@/pages/admin/exams";
+import ExamManagePage from "@/pages/admin/exam-manage";
 import QuestionsPage from "@/pages/admin/questions";
 import CandidatesPage from "@/pages/admin/candidates";
 import MonitoringPage from "@/pages/admin/monitoring";
@@ -56,6 +57,7 @@ function Router() {
         <>
           <Route path="/" component={AdminDashboard} />
           <Route path="/exams" component={ExamsPage} />
+          <Route path="/exams/:id/manage" component={ExamManagePage} />
           <Route path="/questions" component={QuestionsPage} />
           <Route path="/candidates" component={CandidatesPage} />
           <Route path="/monitoring" component={MonitoringPage} />

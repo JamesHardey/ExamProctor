@@ -163,6 +163,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/exams/:id", isAuthenticated, async (req, res) => {
+    try {
+      const examId = parseInt(req.params.id);
+      const exam = await storage.getExam(examId);
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found" });
+      }
+      res.json(exam);
+    } catch (error: any) {
+      console.error("Error fetching exam:", error);
+      res.status(500).json({ message: "Failed to fetch exam" });
+    }
+  });
+
+  app.patch("/api/exams/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const examId = parseInt(req.params.id);
+      const validatedData = insertExamSchema.partial().parse(req.body);
+      const updatedExam = await storage.updateExam(examId, validatedData);
+      res.json(updatedExam);
+    } catch (error: any) {
+      console.error("Error updating exam:", error);
+      res.status(400).json({ message: error.message || "Failed to update exam" });
+    }
+  });
+
   app.get("/api/exams/:id/questions", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const examId = parseInt(req.params.id);
