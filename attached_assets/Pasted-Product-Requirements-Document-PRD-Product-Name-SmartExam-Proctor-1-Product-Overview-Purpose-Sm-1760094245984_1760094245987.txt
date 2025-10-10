@@ -1,0 +1,234 @@
+Product Requirements Document (PRD)
+Product Name: SmartExam Proctor
+1. Product Overview
+
+Purpose:
+SmartExam Proctor is an intelligent, secure online examination and proctoring system that allows administrators to create, manage, and monitor online exams with AI-assisted supervision. It ensures academic integrity through camera monitoring, voice detection, tab-switch restrictions, and question randomization.
+
+2. Objectives
+
+Generate exams based on a specified domain or subject area.
+
+Enforce secure proctoring using webcam and microphone.
+
+Prevent cheating with AI-based monitoring and tab restrictions.
+
+Include Question Randomization so that each candidate receives a unique order of questions and options.
+
+Use PostgreSQL for robust, relational data management.
+
+Allow admins full control over visibility, scheduling, and result options.
+
+3. User Roles
+Role	Description	Key Permissions
+Administrator	Creates exams, manages settings, monitors candidates.	Create/Edit exams, manage questions, configure AI proctoring, view reports.
+Candidate	Takes exams securely with camera and mic enabled.	View instructions, attempt exam, submit answers, view results (if allowed).
+System AI (Proctor Bot)	Monitors user via camera/audio and browser activity.	Detect cheating, flag anomalies, report incidents.
+4. Key Features
+A. Admin Panel
+
+Dashboard
+
+Overview of active exams, candidates, and flagged incidents.
+
+Real-time monitoring (live or summary view).
+
+Exam Creation & Configuration
+
+Define:
+
+Exam title and description
+
+Domain/Subject area
+
+Question type (objective, subjective, etc.)
+
+Number of questions
+
+Time limit
+
+Start/end date and time
+
+Result visibility option (immediate, delayed, or hidden)
+
+Availability toggle (activate/deactivate exam)
+
+Question Management
+
+Upload or manually add questions.
+
+Define question metadata (difficulty level, topic tags, domain).
+
+Store all questions in PostgreSQL with relationships to their domains.
+
+Auto question generation (using domain keywords and AI if integrated).
+
+Question Randomization (Core Feature)
+
+Each candidate gets:
+
+Random selection of questions from the same domain/topic pool.
+
+Randomized question order per attempt.
+
+Randomized answer options for multiple-choice questions.
+
+Randomization logic handled at the backend before exam session begins.
+
+Supports seed-based randomization (for reproducibility).
+
+Proctoring Settings
+
+Enable/disable:
+
+Webcam monitoring (face detection, gaze tracking)
+
+Microphone audio detection (voice presence, background speech)
+
+Tab switch detection
+
+Full-screen mode enforcement
+
+Sensitivity configuration (low, medium, strict)
+
+Candidate Management
+
+Add/import candidates via CSV.
+
+Assign exams to individuals or groups.
+
+View participation status and proctoring reports.
+
+Reports and Analytics
+
+Exam performance summary
+
+AI-detected behavior logs
+
+Export reports (CSV, PDF)
+
+Time and tab activity visualization
+
+B. Candidate Interface
+
+Pre-Exam Page
+
+Displays instructions and requirements.
+
+Webcam/microphone pre-check before starting.
+
+System verifies permissions before “Start Exam” button activates.
+
+Exam Session Interface
+
+Displays one question at a time.
+
+Question Randomization active — order and options are unique per user.
+
+Navigation: Next, Previous, Review later.
+
+Countdown timer displayed at all times.
+
+Automatic submission at time expiration.
+
+Disable copy/paste and screenshot.
+
+Restrict tab-switching (warning + auto-submit on repeated violations).
+
+AI Proctoring
+
+Continuous camera capture via WebRTC.
+
+Real-time audio monitoring using Web Audio API.
+
+Detects:
+
+Face absence
+
+Multiple faces
+
+External voices
+
+Tab switches
+
+Alerts candidate and logs events.
+
+Post-Exam Results
+
+If admin enables:
+
+Show score summary.
+
+Show correct answers.
+
+Or “Results will be published later” message.
+
+5. Functional Requirements
+Module	Requirement
+Authentication	JWT-based secure login for Admin and Candidate.
+Exam Setup	Admin defines domain, duration, and proctoring mode.
+Question Storage	PostgreSQL relational schema with tables: domains, questions, answers, exams, exam_questions, candidates, responses.
+Randomization Engine	Randomly selects n questions from the pool and shuffles question and answer order per candidate.
+Timer	Server-validated countdown; local drift correction.
+Tab Restriction	Browser visibilitychange and focus/blur event listeners.
+Webcam Capture	WebRTC for live video feed (no permanent storage unless admin enables).
+Audio Detection	Web Audio API for noise and voice detection.
+Logging	Store proctoring events (time, type, severity) in PostgreSQL.
+Reporting	Aggregated per-exam and per-candidate analytics.
+6. Non-Functional Requirements
+Category	Description
+Performance	Support 1000+ concurrent users with minimal latency.
+Database	PostgreSQL 16+ with optimized indexes on exam and question tables.
+Scalability	Horizontal scaling via Docker + load balancer.
+Security	TLS encryption, secure cookies, JWT authentication, sanitized inputs.
+Data Privacy	Obtain consent before using camera/mic. Comply with GDPR-like guidelines.
+Fault Tolerance	Auto-save answers every 15 seconds. Recover from disconnections.
+Responsiveness	Mobile-friendly UI and progressive web app support.
+7. Tech Stack
+Layer	Technology
+Frontend	React.js or Next.js, Tailwind CSS, WebRTC, Web Audio API
+Backend	Node.js (NestJS or Express) / FastAPI (Python alternative)
+Database	PostgreSQL (Primary), Redis (optional caching for sessions)
+Authentication	JWT + bcrypt
+AI Components	TensorFlow.js / OpenCV.js for face & movement detection
+Real-time	Socket.io for live monitoring and warnings
+Deployment	Docker + Nginx + DigitalOcean / AWS
+Logging/Monitoring	PM2, Sentry, Grafana
+8. Database Design (High-Level Overview)
+
+Tables:
+
+users (id, name, email, role, password_hash)
+
+domains (id, name, description)
+
+questions (id, domain_id, type, content, options[], correct_answer)
+
+exams (id, domain_id, title, description, duration, start_time, end_time, show_results, status)
+
+exam_questions (id, exam_id, question_id, order_index)
+
+candidates (id, user_id, exam_id, random_seed, started_at, completed_at)
+
+responses (id, candidate_id, question_id, selected_answer, is_correct, time_spent)
+
+proctor_logs (id, candidate_id, event_type, timestamp, severity, metadata)
+
+Randomization logic:
+For each candidate:
+
+Generate a random seed.
+
+Use that seed to shuffle questions and options before session begins.
+
+Persist random seed in DB to reconstruct session order if needed.
+
+9. Success Metrics
+
+0% duplicate question order between two candidates in same exam.
+
+< 2% proctoring false-positives in AI detection.
+
+98% session completion rate without disconnection.
+
+< 3s average response latency for question navigation.
