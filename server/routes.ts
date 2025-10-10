@@ -189,6 +189,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI question generation endpoint
+  app.post("/api/ai/generate-questions", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { examTitle, domainId, description, count } = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(400).json({ 
+          message: "AI question generation is not configured. Please add OPENAI_API_KEY." 
+        });
+      }
+      
+      // Fetch domain name for better AI prompts
+      const domain = await storage.getDomain(domainId);
+      if (!domain) {
+        return res.status(400).json({ message: "Invalid domain" });
+      }
+      
+      const questions = await generateQuestionsWithAI({
+        domainId,
+        examTitle,
+        examDescription: description || "",
+        domainName: domain.name,
+        questionCount: count || 5,
+      });
+      
+      res.json({ questions });
+    } catch (error: any) {
+      console.error("Error generating AI questions:", error);
+      res.status(400).json({ message: error.message || "Failed to generate AI questions" });
+    }
+  });
+
   app.get("/api/exams/:id/questions", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const examId = parseInt(req.params.id);

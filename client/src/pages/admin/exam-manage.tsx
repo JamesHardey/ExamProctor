@@ -17,7 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Plus, Save, Upload, Download, X } from "lucide-react";
+import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { Exam, Domain } from "@shared/schema";
@@ -35,6 +35,8 @@ export default function ExamManagePage() {
   const examId = params?.id ? parseInt(params.id) : null;
   const { toast } = useToast();
   const [newQuestions, setNewQuestions] = useState<QuestionInput[]>([]);
+  const [useAI, setUseAI] = useState(false);
+  const [aiQuestionCount, setAiQuestionCount] = useState(5);
   
   // Form state for settings
   const [formData, setFormData] = useState({
@@ -119,6 +121,51 @@ export default function ExamManagePage() {
       toast({
         title: "Error",
         description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const generateAIQuestionsMutation = useMutation({
+    mutationFn: async () => {
+      if (!exam) throw new Error("Exam not found");
+      
+      const response = await apiRequest("POST", "/api/ai/generate-questions", {
+        examTitle: exam.title,
+        domainId: exam.domainId,
+        description: exam.description || "",
+        count: aiQuestionCount,
+      });
+      
+      // Convert AI response to proper format
+      // AI service returns options as JSON string, but backend expects array
+      const generatedQuestions = response.questions.map((q: any) => ({
+        domainId: exam!.domainId,
+        type: q.type,
+        content: q.content,
+        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
+        correctAnswer: q.correctAnswer,
+      }));
+      
+      await apiRequest("POST", `/api/exams/${examId}/questions`, { questions: generatedQuestions });
+      
+      return response;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/exams", examId, "questions"] });
+      refetchQuestions();
+      setUseAI(false);
+      setAiQuestionCount(5);
+      toast({
+        title: "Success",
+        description: `${data.questions.length} questions generated and added successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate AI questions",
         variant: "destructive",
       });
     },
@@ -388,8 +435,56 @@ export default function ExamManagePage() {
 
         <TabsContent value="questions" className="space-y-4">
           <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Exam Questions</h3>
+            <h3 className="text-lg font-semibold mb-4">Exam Questions</h3>
+            
+            <div className="space-y-4 pb-4 border-b">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="useAI">Generate Questions with AI</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Use AI to automatically generate exam questions
+                  </p>
+                </div>
+                <Switch 
+                  id="useAI" 
+                  checked={useAI}
+                  onCheckedChange={setUseAI}
+                  data-testid="switch-use-ai-questions" 
+                />
+              </div>
+
+              {useAI && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="aiQuestionCount">Number of AI Questions</Label>
+                    <Input
+                      id="aiQuestionCount"
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={aiQuestionCount}
+                      onChange={(e) => setAiQuestionCount(parseInt(e.target.value) || 5)}
+                      placeholder="5"
+                      data-testid="input-ai-question-count"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      AI will generate questions based on exam title, domain, and description
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => generateAIQuestionsMutation.mutate()}
+                    disabled={generateAIQuestionsMutation.isPending}
+                    data-testid="button-generate-ai-questions"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {generateAIQuestionsMutation.isPending ? "Generating..." : "Generate AI Questions"}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between my-4">
+              <h4 className="font-medium">Manual Questions</h4>
               <Button
                 variant="outline"
                 size="sm"
