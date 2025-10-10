@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin, generateInvitationToken } from "./auth";
 import { sendInvitationEmail, isEmailConfigured } from "./email";
+import { generateQuestionsWithAI } from "./ai";
 import {
   insertDomainSchema,
   insertQuestionSchema,
@@ -118,11 +119,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/exams", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { questions: questionsData, ...examData } = req.body;
+      const { questions: questionsData, useAI, aiQuestionCount, ...examData } = req.body;
       const validatedExamData = insertExamSchema.parse(examData);
       
-      if (questionsData && Array.isArray(questionsData) && questionsData.length > 0) {
-        const validatedQuestions = questionsData.map((q: any) => insertQuestionSchema.parse(q));
+      let finalQuestions = questionsData || [];
+      
+      // Generate questions with AI if requested
+      if (useAI && aiQuestionCount && aiQuestionCount > 0) {
+        if (!process.env.OPENAI_API_KEY) {
+          return res.status(400).json({ 
+            message: "AI question generation is not configured. Please add OPENAI_API_KEY." 
+          });
+        }
+        
+        // Fetch domain name for better AI prompts
+        const domain = await storage.getDomain(validatedExamData.domainId);
+        if (!domain) {
+          return res.status(400).json({ message: "Invalid domain" });
+        }
+        
+        const aiQuestions = await generateQuestionsWithAI({
+          domainId: validatedExamData.domainId,
+          examTitle: validatedExamData.title,
+          examDescription: validatedExamData.description || "",
+          domainName: domain.name,
+          questionCount: aiQuestionCount,
+        });
+        
+        finalQuestions = [...finalQuestions, ...aiQuestions];
+      }
+      
+      if (finalQuestions.length > 0) {
+        const validatedQuestions = finalQuestions.map((q: any) => insertQuestionSchema.parse(q));
         const exam = await storage.createExamWithQuestions(validatedExamData, validatedQuestions);
         res.json(exam);
       } else {
@@ -284,6 +312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const { email, firstName, lastName, examId } = candidate;
           
+          // Fetch exam for email invitation
+          const exam = await storage.getExam(parseInt(examId));
+          
           // Find or create user
           let user = await storage.getUserByEmail(email);
           
@@ -301,10 +332,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               invitedAt: new Date(),
             });
             
-            // Send invitation email with token
-            const emailSent = await sendInvitationEmail(user.email, invitationToken, exam);
-            if (!emailSent && isEmailConfigured()) {
-              console.error("Failed to send invitation email to:", user.email);
+            // Send invitation email with token if exam exists
+            if (exam) {
+              const emailSent = await sendInvitationEmail(user.email, invitationToken, exam);
+              if (!emailSent && isEmailConfigured()) {
+                console.error("Failed to send invitation email to:", user.email);
+              }
             }
           }
 

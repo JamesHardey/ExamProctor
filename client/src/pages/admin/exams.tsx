@@ -42,6 +42,8 @@ export default function ExamsPage() {
   const [questions, setQuestions] = useState<QuestionInput[]>([]);
   const [newQuestions, setNewQuestions] = useState<QuestionInput[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<number | null>(null);
+  const [useAI, setUseAI] = useState(false);
+  const [aiQuestionCount, setAiQuestionCount] = useState<number>(5);
   const { toast } = useToast();
 
   const { data: exams, isLoading } = useQuery<Exam[]>({
@@ -66,6 +68,8 @@ export default function ExamsPage() {
       setIsCreateOpen(false);
       setQuestions([]);
       setSelectedDomain(null);
+      setUseAI(false);
+      setAiQuestionCount(5);
       toast({
         title: "Success",
         description: "Exam created successfully",
@@ -130,6 +134,8 @@ export default function ExamsPage() {
     createMutation.mutate({
       ...examData,
       questions: questionsData,
+      useAI,
+      aiQuestionCount: useAI ? aiQuestionCount : 0,
     });
   };
 
@@ -444,8 +450,47 @@ export default function ExamsPage() {
               </div>
 
               <div className="space-y-4 pt-4 border-t">
+                <h4 className="font-medium">Question Generation</h4>
+                
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Questions</h4>
+                  <div className="space-y-0.5">
+                    <Label htmlFor="useAI">Generate Questions with AI</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Use AI to automatically generate exam questions
+                    </p>
+                  </div>
+                  <Switch 
+                    id="useAI" 
+                    checked={useAI}
+                    onCheckedChange={setUseAI}
+                    disabled={!selectedDomain}
+                    data-testid="switch-use-ai" 
+                  />
+                </div>
+
+                {useAI && (
+                  <div className="space-y-2">
+                    <Label htmlFor="aiQuestionCount">Number of AI Questions</Label>
+                    <Input
+                      id="aiQuestionCount"
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={aiQuestionCount}
+                      onChange={(e) => setAiQuestionCount(parseInt(e.target.value) || 5)}
+                      placeholder="5"
+                      data-testid="input-ai-question-count"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      AI will generate questions based on exam title, domain, and description
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Manual Questions</h4>
                   <Button 
                     type="button" 
                     variant="outline" 
