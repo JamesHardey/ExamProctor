@@ -141,6 +141,10 @@ export default function ExamManagePage() {
         count: aiQuestionCount,
       });
       
+      if (!response?.questions || !Array.isArray(response.questions)) {
+        throw new Error("Invalid response from AI service");
+      }
+      
       // Convert AI response to proper format
       // AI service returns options as JSON string, but backend expects array
       const generatedQuestions = response.questions.map((q: any) => ({
@@ -163,7 +167,7 @@ export default function ExamManagePage() {
       setAiQuestionCount(5);
       toast({
         title: "Success",
-        description: `${data.questions.length} questions generated and added successfully`,
+        description: `${data?.questions?.length || 0} questions generated and added successfully`,
       });
     },
     onError: (error: any) => {
