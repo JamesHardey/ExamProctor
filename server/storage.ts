@@ -27,11 +27,14 @@ import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
+  // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByInvitationToken(token: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   createUser(user: UpsertUser): Promise<User>;
+  setUserPassword(id: string, passwordHash: string): Promise<User>;
+  setInvitationToken(id: string, token: string): Promise<User>;
   getAllUsers(): Promise<User[]>;
   updateUserRole(id: string, role: "admin" | "candidate"): Promise<User>;
 
@@ -82,8 +85,40 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByInvitationToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.invitationToken, token));
+    return user;
+  }
+
   async createUser(userData: UpsertUser): Promise<User> {
     const [user] = await db.insert(users).values(userData).returning();
+    return user;
+  }
+
+  async setUserPassword(id: string, passwordHash: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        passwordHash, 
+        invitationToken: null,
+        invitedAt: null,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async setInvitationToken(id: string, token: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        invitationToken: token,
+        invitedAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
     return user;
   }
 
@@ -168,7 +203,10 @@ export class DatabaseStorage implements IStorage {
   async createQuestion(questionData: InsertQuestion): Promise<Question> {
     const [question] = await db
       .insert(questions)
-      .values(questionData)
+      .values({
+        ...questionData,
+        options: questionData.options as any,
+      })
       .returning();
     return question;
   }

@@ -1,9 +1,10 @@
-// API routes with Replit Auth and WebSocket support (referenced from javascript_websocket and javascript_log_in_with_replit blueprints)
+// API routes with password-based authentication and WebSocket support
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin, generateInvitationToken } from "./auth";
+import { sendInvitationEmail, isEmailConfigured } from "./email";
 import {
   insertDomainSchema,
   insertQuestionSchema,
@@ -18,17 +19,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Note: Auth routes are now in server/auth.ts
 
   // Admin Stats
   app.get("/api/admin/stats", isAuthenticated, isAdmin, async (req, res) => {
@@ -184,6 +175,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertCandidateSchema.parse(candidateData);
       const candidate = await storage.createCandidate(validatedData);
+      
+      // Send invitation email if user doesn't have a password yet
+      const user = await storage.getUser(userId);
+      const exam = await storage.getExam(examId);
+      
+      if (user && !user.passwordHash && user.invitationToken && exam) {
+        const emailSent = await sendInvitationEmail(user.email, user.invitationToken, exam);
+        if (!emailSent && isEmailConfigured()) {
+          console.error("Failed to send invitation email to:", user.email);
+        }
+      }
+      
       res.json(candidate);
     } catch (error: any) {
       console.error("Error creating candidate:", error);
@@ -201,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Candidate not found" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (candidate.userId !== userId) {
         return res.status(403).json({ message: "Forbidden" });
       }
@@ -248,14 +251,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let user = await storage.getUserByEmail(email);
           
           if (!user) {
+            // Generate invitation token for new candidates
+            const invitationToken = generateInvitationToken();
+            
             user = await storage.createUser({
               id: crypto.randomUUID(),
               email,
               firstName: firstName || '',
               lastName: lastName || '',
               role: "candidate",
-              replitUserId: email, // Use email as fallback
+              invitationToken,
+              invitedAt: new Date(),
             });
+            
+            // Send invitation email with token
+            const emailSent = await sendInvitationEmail(user.email, invitationToken, exam);
+            if (!emailSent && isEmailConfigured()) {
+              console.error("Failed to send invitation email to:", user.email);
+            }
           }
 
           // Create candidate assignment
@@ -263,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId: user.id,
             examId: parseInt(examId),
             status: "assigned",
-            randomSeed: Math.floor(Math.random() * 1000000),
+            randomSeed: Math.floor(Math.random() * 1000000).toString(),
           });
 
           results.successful++;
@@ -283,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // My exams (for candidates)
   app.get("/api/my-exams", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const candidates = await storage.getCandidatesByUser(userId);
       
       const candidatesWithExams = await Promise.all(
@@ -311,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify user owns this candidate session
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (candidate.userId !== userId) {
         return res.status(403).json({ message: "Forbidden" });
       }
@@ -417,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Candidate not found" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (candidate.userId !== userId) {
         return res.status(403).json({ message: "Forbidden" });
       }
@@ -479,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Candidate not found" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       // Allow access if user is admin or owns the candidate session
@@ -546,7 +559,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const examCompleted = examCandidates.filter(c => c.status === "completed");
         const examScores = examCompleted.filter(c => c.score !== null).map(c => c.score!);
         const avgScore = examScores.length > 0 ? examScores.reduce((a, b) => a + b, 0) / examScores.length : 0;
-        const passRate = examScores.length > 0 ? (examScores.filter(s => s >= (exam.passingScore || 70)).length / examScores.length * 100) : 0;
+        const passingScore = 70; // Default passing score
+        const passRate = examScores.length > 0 ? (examScores.filter(s => s >= passingScore).length / examScores.length * 100) : 0;
         const violations = allLogs.filter(log => examCandidates.some(c => c.id === log.candidateId)).length;
 
         return {

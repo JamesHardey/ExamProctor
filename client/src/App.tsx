@@ -9,7 +9,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
+import LoginPage from "@/pages/login";
+import SetPasswordPage from "@/pages/set-password";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -40,7 +41,8 @@ function Router() {
   if (isLoading || !isAuthenticated) {
     return (
       <Switch>
-        <Route path="/" component={Landing} />
+        <Route path="/" component={LoginPage} />
+        <Route path="/set-password" component={SetPasswordPage} />
         <Route component={NotFound} />
       </Switch>
     );
