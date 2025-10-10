@@ -637,6 +637,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Catch-all 404 handler for undefined API routes
+  app.all("/api/auth/register-admin", (_req, res) => {
+    res.status(404).json({ message: "API endpoint not found" });
+  });
+
   const httpServer = createServer(app);
 
   // WebSocket server for real-time monitoring (referenced from javascript_websocket blueprint)

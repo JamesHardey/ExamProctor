@@ -88,7 +88,7 @@ export function AppSidebar() {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/user"], null);
-      setLocation("/");
+      setLocation(isAdmin ? "/admin" : "/");
     },
   });
 
@@ -128,7 +128,6 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">

@@ -1,31 +1,27 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocation } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { FileText } from "lucide-react";
 
-const loginSchema = z.object({
+const candidateLoginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
+type CandidateLoginForm = z.infer<typeof candidateLoginSchema>;
 
-export default function LoginPage() {
-  const [, setLocation] = useLocation();
+export default function CandidateLoginPage() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isRegistering, setIsRegistering] = useState(false);
 
-  const form = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<CandidateLoginForm>({
+    resolver: zodResolver(candidateLoginSchema),
     defaultValues: {
       email: "",
       password: "",
@@ -33,16 +29,18 @@ export default function LoginPage() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: async (data: LoginForm) => {
-      return await apiRequest("POST", "/api/auth/login", data);
+    mutationFn: async (data: CandidateLoginForm) => {
+      const response = await apiRequest("POST", "/api/auth/login", { ...data, requiredRole: "candidate" });
+      return response;
     },
-    onSuccess: (user) => {
-      queryClient.setQueryData(["/api/auth/user"], user);
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Logged in successfully",
       });
-      setLocation("/");
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
     },
     onError: (error: any) => {
       toast({
@@ -53,48 +51,20 @@ export default function LoginPage() {
     },
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: LoginForm & { firstName: string; lastName: string }) => {
-      return await apiRequest("POST", "/api/auth/register-admin", data);
-    },
-    onSuccess: (user) => {
-      queryClient.setQueryData(["/api/auth/user"], user);
-      toast({
-        title: "Success",
-        description: "Admin account created successfully",
-      });
-      setLocation("/");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Registration failed",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: LoginForm) => {
-    if (isRegistering) {
-      registerMutation.mutate({
-        ...data,
-        firstName: "Admin",
-        lastName: "User",
-      });
-    } else {
-      loginMutation.mutate(data);
-    }
+  const onSubmit = (data: CandidateLoginForm) => {
+    loginMutation.mutate(data);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{isRegistering ? "Create Admin Account" : "Sign In"}</CardTitle>
+        <CardHeader className="space-y-1">
+          <div className="flex items-center gap-2 mb-2">
+            <FileText className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Candidate Login</CardTitle>
+          </div>
           <CardDescription>
-            {isRegistering
-              ? "Create an admin account to manage exams"
-              : "Enter your credentials to access SmartExam Proctor"}
+            Enter your credentials to access your assigned exams
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -109,9 +79,9 @@ export default function LoginPage() {
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="admin@example.com"
+                        placeholder="candidate@example.com"
                         {...field}
-                        data-testid="input-email"
+                        data-testid="input-candidate-email"
                       />
                     </FormControl>
                     <FormMessage />
@@ -129,7 +99,7 @@ export default function LoginPage() {
                         type="password"
                         placeholder="••••••••"
                         {...field}
-                        data-testid="input-password"
+                        data-testid="input-candidate-password"
                       />
                     </FormControl>
                     <FormMessage />
@@ -139,25 +109,10 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loginMutation.isPending || registerMutation.isPending}
-                data-testid="button-submit"
+                disabled={loginMutation.isPending}
+                data-testid="button-candidate-submit"
               >
-                {loginMutation.isPending || registerMutation.isPending
-                  ? "Please wait..."
-                  : isRegistering
-                  ? "Create Account"
-                  : "Sign In"}
-              </Button>
-              <Button
-                type="button"
-                variant="link"
-                className="w-full"
-                onClick={() => setIsRegistering(!isRegistering)}
-                data-testid="button-toggle-mode"
-              >
-                {isRegistering
-                  ? "Already have an account? Sign in"
-                  : "Need an admin account? Register"}
+                {loginMutation.isPending ? "Signing in..." : "Sign In"}
               </Button>
             </form>
           </Form>
