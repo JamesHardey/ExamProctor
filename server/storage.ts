@@ -36,6 +36,7 @@ export interface IStorage {
   setUserPassword(id: string, passwordHash: string): Promise<User>;
   setInvitationToken(id: string, token: string): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  updateUser(id: string, data: Partial<UpsertUser>): Promise<User>;
   updateUserRole(id: string, role: "admin" | "candidate"): Promise<User>;
 
   // Domain operations
@@ -153,6 +154,15 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users);
+  }
+
+  async updateUser(id: string, data: Partial<UpsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   async updateUserRole(id: string, role: "admin" | "candidate"): Promise<User> {

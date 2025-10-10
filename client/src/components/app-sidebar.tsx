@@ -24,6 +24,9 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 const adminItems = [
   {
@@ -76,6 +79,18 @@ const candidateItems = [
 export function AppSidebar() {
   const { user, isAdmin } = useAuth();
   const items = isAdmin ? adminItems : candidateItems;
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/auth/logout", {});
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(["/api/auth/user"], null);
+      setLocation("/");
+    },
+  });
 
   const initials = user?.firstName && user?.lastName 
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
@@ -131,7 +146,8 @@ export function AppSidebar() {
           variant="outline" 
           size="sm" 
           className="w-full" 
-          onClick={() => window.location.href = "/api/logout"}
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
           data-testid="button-logout"
         >
           <LogOut className="h-4 w-4 mr-2" />
