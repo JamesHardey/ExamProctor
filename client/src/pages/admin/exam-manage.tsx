@@ -17,7 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { Exam, Domain } from "@shared/schema";
@@ -628,22 +628,9 @@ export default function ExamManagePage() {
                 {examQuestions.map((q, index) => (
                   <Card key={q.id} className="p-4" data-testid={`existing-question-${index}`}>
                     <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-2 flex-1">
-                          <Badge variant="outline" className="mt-1">{q.type === "multiple_choice" ? "Multiple Choice" : "True/False"}</Badge>
-                          <p className="font-medium flex-1">{q.content}</p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            // Navigate to Questions page to edit
-                            window.location.href = '/admin/questions';
-                          }}
-                          data-testid={`button-edit-existing-${index}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                      <div className="flex items-start gap-2">
+                        <Badge variant="outline" className="mt-1">{q.type === "multiple_choice" ? "Multiple Choice" : "True/False"}</Badge>
+                        <p className="font-medium flex-1">{q.content}</p>
                       </div>
                       
                       <div className="border-t pt-3">

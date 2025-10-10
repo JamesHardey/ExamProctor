@@ -13,7 +13,6 @@ import {
 import { 
   LayoutDashboard, 
   FileText, 
-  HelpCircle, 
   Users, 
   Eye,
   Shield,
@@ -41,12 +40,6 @@ const adminItems = [
     url: "/exams",
     icon: FileText,
     testId: "link-exams"
-  },
-  {
-    title: "Questions",
-    url: "/questions",
-    icon: HelpCircle,
-    testId: "link-questions"
   },
   {
     title: "Domains",
