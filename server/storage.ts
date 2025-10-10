@@ -1,0 +1,264 @@
+// Storage layer using DatabaseStorage with PostgreSQL (referenced from javascript_database blueprint)
+import {
+  users,
+  domains,
+  questions,
+  exams,
+  examQuestions,
+  candidates,
+  responses,
+  proctorLogs,
+  type User,
+  type UpsertUser,
+  type Domain,
+  type InsertDomain,
+  type Question,
+  type InsertQuestion,
+  type Exam,
+  type InsertExam,
+  type Candidate,
+  type InsertCandidate,
+  type Response,
+  type InsertResponse,
+  type ProctorLog,
+  type InsertProctorLog,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
+
+export interface IStorage {
+  // User operations (required for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  updateUserRole(id: string, role: "admin" | "candidate"): Promise<User>;
+
+  // Domain operations
+  getDomains(): Promise<Domain[]>;
+  getDomain(id: number): Promise<Domain | undefined>;
+  createDomain(domain: InsertDomain): Promise<Domain>;
+
+  // Question operations
+  getQuestions(): Promise<Question[]>;
+  getQuestionsByDomain(domainId: number): Promise<Question[]>;
+  getQuestion(id: number): Promise<Question | undefined>;
+  createQuestion(question: InsertQuestion): Promise<Question>;
+
+  // Exam operations
+  getExams(): Promise<Exam[]>;
+  getExam(id: number): Promise<Exam | undefined>;
+  createExam(exam: InsertExam): Promise<Exam>;
+  updateExam(id: number, exam: Partial<InsertExam>): Promise<Exam>;
+
+  // Candidate operations
+  getCandidates(): Promise<Candidate[]>;
+  getCandidate(id: number): Promise<Candidate | undefined>;
+  getCandidatesByUser(userId: string): Promise<Candidate[]>;
+  getCandidatesByExam(examId: number): Promise<Candidate[]>;
+  createCandidate(candidate: InsertCandidate): Promise<Candidate>;
+  updateCandidate(id: number, candidate: Partial<InsertCandidate>): Promise<Candidate>;
+
+  // Response operations
+  getResponses(candidateId: number): Promise<Response[]>;
+  createResponse(response: InsertResponse): Promise<Response>;
+  updateResponse(id: number, response: Partial<InsertResponse>): Promise<Response>;
+
+  // Proctor log operations
+  getProctorLogs(candidateId?: number): Promise<ProctorLog[]>;
+  createProctorLog(log: InsertProctorLog): Promise<ProctorLog>;
+}
+
+export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  async updateUserRole(id: string, role: "admin" | "candidate"): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  // Domain operations
+  async getDomains(): Promise<Domain[]> {
+    return await db.select().from(domains).orderBy(desc(domains.createdAt));
+  }
+
+  async getDomain(id: number): Promise<Domain | undefined> {
+    const [domain] = await db.select().from(domains).where(eq(domains.id, id));
+    return domain;
+  }
+
+  async createDomain(domainData: InsertDomain): Promise<Domain> {
+    const [domain] = await db
+      .insert(domains)
+      .values(domainData)
+      .returning();
+    return domain;
+  }
+
+  // Question operations
+  async getQuestions(): Promise<Question[]> {
+    return await db.select().from(questions).orderBy(desc(questions.createdAt));
+  }
+
+  async getQuestionsByDomain(domainId: number): Promise<Question[]> {
+    return await db
+      .select()
+      .from(questions)
+      .where(eq(questions.domainId, domainId))
+      .orderBy(desc(questions.createdAt));
+  }
+
+  async getQuestion(id: number): Promise<Question | undefined> {
+    const [question] = await db.select().from(questions).where(eq(questions.id, id));
+    return question;
+  }
+
+  async createQuestion(questionData: InsertQuestion): Promise<Question> {
+    const [question] = await db
+      .insert(questions)
+      .values(questionData)
+      .returning();
+    return question;
+  }
+
+  // Exam operations
+  async getExams(): Promise<Exam[]> {
+    return await db.select().from(exams).orderBy(desc(exams.createdAt));
+  }
+
+  async getExam(id: number): Promise<Exam | undefined> {
+    const [exam] = await db.select().from(exams).where(eq(exams.id, id));
+    return exam;
+  }
+
+  async createExam(examData: InsertExam): Promise<Exam> {
+    const [exam] = await db
+      .insert(exams)
+      .values(examData)
+      .returning();
+    return exam;
+  }
+
+  async updateExam(id: number, examData: Partial<InsertExam>): Promise<Exam> {
+    const [exam] = await db
+      .update(exams)
+      .set(examData)
+      .where(eq(exams.id, id))
+      .returning();
+    return exam;
+  }
+
+  // Candidate operations
+  async getCandidates(): Promise<Candidate[]> {
+    return await db.select().from(candidates);
+  }
+
+  async getCandidate(id: number): Promise<Candidate | undefined> {
+    const [candidate] = await db.select().from(candidates).where(eq(candidates.id, id));
+    return candidate;
+  }
+
+  async getCandidatesByUser(userId: string): Promise<Candidate[]> {
+    return await db
+      .select()
+      .from(candidates)
+      .where(eq(candidates.userId, userId));
+  }
+
+  async getCandidatesByExam(examId: number): Promise<Candidate[]> {
+    return await db
+      .select()
+      .from(candidates)
+      .where(eq(candidates.examId, examId));
+  }
+
+  async createCandidate(candidateData: InsertCandidate): Promise<Candidate> {
+    const [candidate] = await db
+      .insert(candidates)
+      .values(candidateData)
+      .returning();
+    return candidate;
+  }
+
+  async updateCandidate(id: number, candidateData: Partial<InsertCandidate>): Promise<Candidate> {
+    const [candidate] = await db
+      .update(candidates)
+      .set(candidateData)
+      .where(eq(candidates.id, id))
+      .returning();
+    return candidate;
+  }
+
+  // Response operations
+  async getResponses(candidateId: number): Promise<Response[]> {
+    return await db
+      .select()
+      .from(responses)
+      .where(eq(responses.candidateId, candidateId));
+  }
+
+  async createResponse(responseData: InsertResponse): Promise<Response> {
+    const [response] = await db
+      .insert(responses)
+      .values(responseData)
+      .returning();
+    return response;
+  }
+
+  async updateResponse(id: number, responseData: Partial<InsertResponse>): Promise<Response> {
+    const [response] = await db
+      .update(responses)
+      .set(responseData)
+      .where(eq(responses.id, id))
+      .returning();
+    return response;
+  }
+
+  // Proctor log operations
+  async getProctorLogs(candidateId?: number): Promise<ProctorLog[]> {
+    if (candidateId) {
+      return await db
+        .select()
+        .from(proctorLogs)
+        .where(eq(proctorLogs.candidateId, candidateId))
+        .orderBy(desc(proctorLogs.timestamp));
+    }
+    return await db.select().from(proctorLogs).orderBy(desc(proctorLogs.timestamp));
+  }
+
+  async createProctorLog(logData: InsertProctorLog): Promise<ProctorLog> {
+    const [log] = await db
+      .insert(proctorLogs)
+      .values(logData)
+      .returning();
+    return log;
+  }
+}
+
+export const storage = new DatabaseStorage();
