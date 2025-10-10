@@ -19,7 +19,8 @@ import {
   Shield,
   LogOut,
   User,
-  BarChart3
+  BarChart3,
+  FolderOpen
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -48,10 +49,10 @@ const adminItems = [
     testId: "link-questions"
   },
   {
-    title: "Candidates",
-    url: "/candidates",
-    icon: Users,
-    testId: "link-candidates"
+    title: "Domains",
+    url: "/domains",
+    icon: FolderOpen,
+    testId: "link-domains"
   },
   {
     title: "Live Monitoring",
