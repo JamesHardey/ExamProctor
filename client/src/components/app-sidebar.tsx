@@ -18,7 +18,8 @@ import {
   Eye,
   Shield,
   LogOut,
-  User
+  User,
+  BarChart3
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -54,6 +55,12 @@ const adminItems = [
     url: "/monitoring",
     icon: Eye,
     testId: "link-monitoring"
+  },
+  {
+    title: "Analytics",
+    url: "/analytics",
+    icon: BarChart3,
+    testId: "link-analytics"
   },
 ];
 

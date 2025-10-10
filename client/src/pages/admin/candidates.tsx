@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, UserPlus } from "lucide-react";
+import { Plus, UserPlus, Upload, Download, FileDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import Papa from "papaparse";
+import { exportExamResultsCSV, exportExamResultsPDF } from "@/lib/exportReports";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +35,8 @@ interface CandidateWithDetails extends Candidate {
 
 export default function CandidatesPage() {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: candidates, isLoading } = useQuery<CandidateWithDetails[]>({
@@ -68,6 +72,27 @@ export default function CandidatesPage() {
     },
   });
 
+  const bulkImportMutation = useMutation({
+    mutationFn: async (data: any[]) => {
+      return await apiRequest("POST", "/api/candidates/bulk-import", { candidates: data });
+    },
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/candidates"] });
+      setIsImportOpen(false);
+      toast({
+        title: "Import Complete",
+        description: `Successfully imported ${response.successful} candidates. ${response.failed > 0 ? `${response.failed} failed.` : ''}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Import Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -78,6 +103,59 @@ export default function CandidatesPage() {
     };
 
     assignMutation.mutate(data);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      complete: (results) => {
+        const validData = results.data
+          .filter((row: any) => row.email && row.examId)
+          .map((row: any) => ({
+            email: row.email.trim(),
+            examId: parseInt(row.examId),
+            firstName: row.firstName?.trim() || '',
+            lastName: row.lastName?.trim() || '',
+          }));
+
+        if (validData.length === 0) {
+          toast({
+            title: "No Valid Data",
+            description: "The CSV file contains no valid candidate entries.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        bulkImportMutation.mutate(validData);
+      },
+      error: (error) => {
+        toast({
+          title: "CSV Parse Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      },
+    });
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template = 'email,firstName,lastName,examId\ncandidate@example.com,John,Doe,1\n';
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'candidate_import_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const getStatusColor = (status: string) => {
@@ -102,7 +180,20 @@ export default function CandidatesPage() {
             Manage candidate enrollments and exam assignments
           </p>
         </div>
-        <Button onClick={() => setIsAssignOpen(true)} data-testid="button-assign-exam">
+        <div className="flex gap-2">
+          <Button onClick={() => candidates && exportExamResultsCSV(candidates)} variant="outline" data-testid="button-export-csv">
+            <FileDown className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button onClick={() => candidates && exportExamResultsPDF(candidates)} variant="outline" data-testid="button-export-pdf">
+            <FileDown className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button onClick={() => setIsImportOpen(true)} variant="outline" data-testid="button-import-csv">
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button onClick={() => setIsAssignOpen(true)} data-testid="button-assign-exam">
           <UserPlus className="h-4 w-4 mr-2" />
           Assign Exam
         </Button>
@@ -232,6 +323,67 @@ export default function CandidatesPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Candidates from CSV</DialogTitle>
+            <DialogDescription>
+              Upload a CSV file to bulk import candidates and assign exams
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border p-4 bg-muted/50">
+              <p className="text-sm text-muted-foreground mb-2">
+                CSV should include: email, firstName, lastName, examId
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={downloadTemplate}
+                data-testid="button-download-template"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </Button>
+            </div>
+
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="hidden"
+                data-testid="input-csv-file"
+              />
+              <Button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={bulkImportMutation.isPending}
+                className="w-full"
+                data-testid="button-select-csv"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {bulkImportMutation.isPending ? "Importing..." : "Select CSV File"}
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsImportOpen(false)}
+              data-testid="button-cancel-import"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

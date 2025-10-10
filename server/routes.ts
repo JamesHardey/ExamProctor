@@ -225,6 +225,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk import candidates
+  app.post("/api/candidates/bulk-import", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { candidates } = req.body;
+      
+      if (!Array.isArray(candidates) || candidates.length === 0) {
+        return res.status(400).json({ message: "No candidates provided" });
+      }
+
+      const results = {
+        successful: 0,
+        failed: 0,
+        errors: [] as string[],
+      };
+
+      for (const candidate of candidates) {
+        try {
+          const { email, firstName, lastName, examId } = candidate;
+          
+          // Find or create user
+          let user = await storage.getUserByEmail(email);
+          
+          if (!user) {
+            user = await storage.createUser({
+              id: crypto.randomUUID(),
+              email,
+              firstName: firstName || '',
+              lastName: lastName || '',
+              role: "candidate",
+              replitUserId: email, // Use email as fallback
+            });
+          }
+
+          // Create candidate assignment
+          await storage.createCandidate({
+            userId: user.id,
+            examId: parseInt(examId),
+            status: "assigned",
+            randomSeed: Math.floor(Math.random() * 1000000),
+          });
+
+          results.successful++;
+        } catch (error: any) {
+          results.failed++;
+          results.errors.push(`${candidate.email}: ${error.message}`);
+        }
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      console.error("Bulk import error:", error);
+      res.status(500).json({ message: error.message || "Bulk import failed" });
+    }
+  });
+
   // My exams (for candidates)
   app.get("/api/my-exams", isAuthenticated, async (req: any, res) => {
     try {
@@ -437,6 +492,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching candidate:", error);
       res.status(500).json({ message: "Failed to fetch candidate" });
+    }
+  });
+
+  // Analytics routes
+  app.get("/api/analytics", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const allCandidates = await storage.getCandidates();
+      const allExams = await storage.getExams();
+      const allLogs = await storage.getProctorLogs();
+
+      const completedCandidates = allCandidates.filter(c => c.status === "completed");
+      const scores = completedCandidates.filter(c => c.score !== null).map(c => c.score!);
+      const averageScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+
+      // Status distribution
+      const statusCounts = allCandidates.reduce((acc: any, c) => {
+        acc[c.status] = (acc[c.status] || 0) + 1;
+        return acc;
+      }, {});
+      const statusDistribution = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+
+      // Score distribution
+      const scoreRanges = ['0-20', '21-40', '41-60', '61-80', '81-100'];
+      const scoreDistribution = scoreRanges.map(range => {
+        const [min, max] = range.split('-').map(Number);
+        const count = scores.filter(s => s >= min && s <= max).length;
+        return { range, count };
+      });
+
+      // Completions over time (last 7 days)
+      const today = new Date();
+      const completionsOverTime = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(today);
+        date.setDate(date.getDate() - (6 - i));
+        const dateStr = date.toISOString().split('T')[0];
+        const completions = completedCandidates.filter(c => 
+          c.completedAt && new Date(c.completedAt).toISOString().split('T')[0] === dateStr
+        ).length;
+        return { date: dateStr, completions };
+      });
+
+      // Violation types
+      const violationCounts = allLogs.reduce((acc: any, log) => {
+        acc[log.eventType] = (acc[log.eventType] || 0) + 1;
+        return acc;
+      }, {});
+      const violationTypes = Object.entries(violationCounts).map(([type, count]) => ({ type, count }));
+
+      // Exam performance
+      const examPerformance = await Promise.all(allExams.map(async (exam) => {
+        const examCandidates = allCandidates.filter(c => c.examId === exam.id);
+        const examCompleted = examCandidates.filter(c => c.status === "completed");
+        const examScores = examCompleted.filter(c => c.score !== null).map(c => c.score!);
+        const avgScore = examScores.length > 0 ? examScores.reduce((a, b) => a + b, 0) / examScores.length : 0;
+        const passRate = examScores.length > 0 ? (examScores.filter(s => s >= (exam.passingScore || 70)).length / examScores.length * 100) : 0;
+        const violations = allLogs.filter(log => examCandidates.some(c => c.id === log.candidateId)).length;
+
+        return {
+          examId: exam.id,
+          title: exam.title,
+          totalCandidates: examCandidates.length,
+          completed: examCompleted.length,
+          avgScore,
+          passRate,
+          violations,
+        };
+      }));
+
+      res.json({
+        totalExams: allExams.length,
+        activeExams: allExams.filter(e => e.status === "active").length,
+        totalCandidates: allCandidates.length,
+        completedCandidates: completedCandidates.length,
+        averageScore,
+        totalViolations: allLogs.length,
+        highSeverityViolations: allLogs.filter(l => l.severity === "high").length,
+        statusDistribution,
+        scoreDistribution,
+        completionsOverTime,
+        violationTypes,
+        examPerformance,
+      });
+    } catch (error) {
+      console.error("Analytics error:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
     }
   });
 

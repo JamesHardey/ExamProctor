@@ -14,6 +14,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Question } from "@shared/schema";
+import * as blazeface from "@tensorflow-models/blazeface";
+import "@tensorflow/tfjs";
 
 interface ExamSessionData {
   candidateId: number;
@@ -37,7 +39,14 @@ export default function ExamSessionPage({
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(new Set());
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [isMicActive, setIsMicActive] = useState(false);
+  const [faceDetectionStatus, setFaceDetectionStatus] = useState<"detecting" | "face_detected" | "no_face" | "multiple_faces">("detecting");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const faceModelRef = useRef<blazeface.BlazeFaceModel | null>(null);
   const { toast } = useToast();
 
   const { data: sessionData, isLoading } = useQuery<ExamSessionData>({
@@ -67,30 +76,205 @@ export default function ExamSessionPage({
     return () => clearInterval(interval);
   }, [timeRemaining]);
 
-  // Webcam
+  // Webcam and Microphone
   useEffect(() => {
-    const startCamera = async () => {
+    const startCameraAndMic = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true, 
+          audio: true 
+        });
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           setIsCameraActive(true);
         }
+
+        // Setup audio analysis
+        const audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        
+        source.connect(analyser);
+        audioContextRef.current = audioContext;
+        analyserRef.current = analyser;
+        setIsMicActive(true);
+
+        // Monitor audio levels
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        let silenceStartTime: number | null = null;
+        let highNoiseStartTime: number | null = null;
+
+        const checkAudioLevel = () => {
+          if (!analyserRef.current) return;
+
+          analyser.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+          setAudioLevel(Math.round(average));
+
+          const now = Date.now();
+          
+          // Detect prolonged silence (no speech for 30 seconds)
+          if (average < 5) {
+            if (!silenceStartTime) silenceStartTime = now;
+            if (now - silenceStartTime > 30000) {
+              logProctorEvent("voice_absence", "low");
+              silenceStartTime = now; // Reset to avoid spam
+            }
+          } else {
+            silenceStartTime = null;
+          }
+
+          // Detect loud background noise
+          if (average > 80) {
+            if (!highNoiseStartTime) highNoiseStartTime = now;
+            if (now - highNoiseStartTime > 3000) {
+              logProctorEvent("background_noise", "medium");
+              toast({
+                title: "Background Noise Detected",
+                description: "High audio levels detected. Please minimize background noise.",
+                variant: "destructive",
+              });
+              highNoiseStartTime = now;
+            }
+          } else {
+            highNoiseStartTime = null;
+          }
+
+          requestAnimationFrame(checkAudioLevel);
+        };
+
+        checkAudioLevel();
+
       } catch (error) {
         toast({
-          title: "Camera Error",
-          description: "Unable to access camera. Please check permissions.",
+          title: "Media Error",
+          description: "Unable to access camera/microphone. Please check permissions.",
           variant: "destructive",
         });
       }
     };
 
-    startCamera();
+    startCameraAndMic();
 
     return () => {
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  // Face Detection with TensorFlow.js
+  useEffect(() => {
+    const loadFaceDetection = async () => {
+      try {
+        const model = await blazeface.load();
+        faceModelRef.current = model;
+        
+        let noFaceStartTime: number | null = null;
+        let multipleFacesStartTime: number | null = null;
+
+        const detectFaces = async () => {
+          if (!videoRef.current || !faceModelRef.current || videoRef.current.readyState < 2) {
+            requestAnimationFrame(detectFaces);
+            return;
+          }
+
+          const predictions = await faceModelRef.current.estimateFaces(videoRef.current, false);
+          const now = Date.now();
+
+          if (predictions.length === 0) {
+            setFaceDetectionStatus("no_face");
+            if (!noFaceStartTime) noFaceStartTime = now;
+            
+            // Log if no face detected for more than 10 seconds
+            if (now - noFaceStartTime > 10000) {
+              logProctorEvent("face_absent", "high");
+              toast({
+                title: "Face Not Detected",
+                description: "Please ensure your face is visible to the camera.",
+                variant: "destructive",
+              });
+              noFaceStartTime = now; // Reset to avoid spam
+            }
+          } else if (predictions.length > 1) {
+            setFaceDetectionStatus("multiple_faces");
+            if (!multipleFacesStartTime) multipleFacesStartTime = now;
+            
+            // Log if multiple faces detected for more than 5 seconds
+            if (now - multipleFacesStartTime > 5000) {
+              logProctorEvent("multiple_faces", "high");
+              toast({
+                title: "Multiple Faces Detected",
+                description: "Only the candidate should be visible in the camera.",
+                variant: "destructive",
+              });
+              multipleFacesStartTime = now;
+            }
+          } else {
+            setFaceDetectionStatus("face_detected");
+            noFaceStartTime = null;
+            multipleFacesStartTime = null;
+          }
+
+          requestAnimationFrame(detectFaces);
+        };
+
+        detectFaces();
+      } catch (error) {
+        console.error("Face detection error:", error);
+      }
+    };
+
+    loadFaceDetection();
+  }, [isCameraActive]);
+
+  // Full-screen enforcement
+  useEffect(() => {
+    const enterFullscreen = async () => {
+      try {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } catch (error) {
+        toast({
+          title: "Fullscreen Required",
+          description: "Please enable fullscreen mode to continue the exam.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    const handleFullscreenChange = () => {
+      const inFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(inFullscreen);
+      
+      if (!inFullscreen) {
+        logProctorEvent("fullscreen_exit", "high");
+        toast({
+          title: "Fullscreen Exited",
+          description: "Exiting fullscreen mode is not allowed. This has been logged.",
+          variant: "destructive",
+        });
+        
+        // Re-enter fullscreen after a short delay
+        setTimeout(() => {
+          enterFullscreen();
+        }, 1000);
+      }
+    };
+
+    enterFullscreen();
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
       }
     };
   }, []);
@@ -218,9 +402,29 @@ export default function ExamSessionPage({
 
           <div className="flex items-center gap-4">
             {isCameraActive && (
-              <Badge variant="outline" className="bg-chart-2/10 text-chart-2">
+              <Badge 
+                variant="outline" 
+                className={
+                  faceDetectionStatus === "face_detected" ? "bg-chart-2/10 text-chart-2" :
+                  faceDetectionStatus === "multiple_faces" ? "bg-destructive/10 text-destructive" :
+                  faceDetectionStatus === "no_face" ? "bg-chart-4/10 text-chart-4" :
+                  "bg-muted text-muted-foreground"
+                }
+              >
                 <Camera className="h-3 w-3 mr-1" />
-                Recording
+                {faceDetectionStatus === "face_detected" ? "Face OK" :
+                 faceDetectionStatus === "multiple_faces" ? "Multiple Faces" :
+                 faceDetectionStatus === "no_face" ? "No Face" :
+                 "Detecting..."}
+              </Badge>
+            )}
+            {isMicActive && (
+              <Badge variant="outline" className="bg-chart-3/10 text-chart-3">
+                <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4z"/>
+                  <path d="M5.5 9.643a.75.75 0 00-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-1.5v-1.546A6.001 6.001 0 0016 10v-.357a.75.75 0 00-1.5 0V10a4.5 4.5 0 01-9 0v-.357z"/>
+                </svg>
+                Audio: {audioLevel}%
               </Badge>
             )}
             <Badge 

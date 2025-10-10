@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Eye, Camera } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Eye, Camera, FileDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { ProctorLog, Candidate, User } from "@shared/schema";
+import { exportProctorLogsCSV, exportProctorLogsPDF } from "@/lib/exportReports";
 
 interface ProctorLogWithDetails extends ProctorLog {
   candidate?: Candidate & { user?: User };
@@ -44,11 +46,23 @@ export default function MonitoringPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2" data-testid="text-page-title">Live Monitoring</h1>
-        <p className="text-muted-foreground" data-testid="text-page-description">
-          Real-time exam monitoring and proctoring events
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold mb-2" data-testid="text-page-title">Live Monitoring</h1>
+          <p className="text-muted-foreground" data-testid="text-page-description">
+            Real-time exam monitoring and proctoring events
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => logs && exportProctorLogsCSV(logs)} variant="outline" data-testid="button-export-logs-csv">
+            <FileDown className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button onClick={() => logs && exportProctorLogsPDF(logs)} variant="outline" data-testid="button-export-logs-pdf">
+            <FileDown className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

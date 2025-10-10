@@ -18,6 +18,7 @@ import QuestionsPage from "@/pages/admin/questions";
 import CandidatesPage from "@/pages/admin/candidates";
 import MonitoringPage from "@/pages/admin/monitoring";
 import DomainsPage from "@/pages/admin/domains";
+import AnalyticsPage from "@/pages/admin/analytics";
 
 // Candidate pages
 import MyExamsPage from "@/pages/candidate/my-exams";
@@ -44,6 +45,7 @@ function Router() {
           <Route path="/questions" component={QuestionsPage} />
           <Route path="/candidates" component={CandidatesPage} />
           <Route path="/monitoring" component={MonitoringPage} />
+          <Route path="/analytics" component={AnalyticsPage} />
           <Route path="/domains" component={DomainsPage} />
         </>
       ) : (
