@@ -29,7 +29,10 @@ import type { Question, Domain } from "@shared/schema";
 
 export default function QuestionsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [options, setOptions] = useState(["", "", "", ""]);
+  const [editOptions, setEditOptions] = useState<string[]>([]);
   const { toast } = useToast();
 
   const { data: questions, isLoading } = useQuery<Question[]>({
@@ -62,6 +65,49 @@ export default function QuestionsPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return await apiRequest("PUT", `/api/questions/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
+      setIsEditOpen(false);
+      setEditingQuestion(null);
+      setEditOptions([]);
+      toast({
+        title: "Success",
+        description: "Question updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/questions/${id}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/questions"] });
+      toast({
+        title: "Success",
+        description: "Question deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -77,6 +123,36 @@ export default function QuestionsPage() {
     };
 
     createMutation.mutate(data);
+  };
+
+  const handleEditClick = (question: Question) => {
+    setEditingQuestion(question);
+    setEditOptions(question.options as string[]);
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingQuestion) return;
+
+    const formData = new FormData(e.currentTarget);
+    const filteredOptions = editOptions.filter(opt => opt.trim() !== "");
+    
+    const data = {
+      domainId: parseInt(formData.get("domainId") as string),
+      type: formData.get("type") as string,
+      content: formData.get("content") as string,
+      options: filteredOptions,
+      correctAnswer: formData.get("correctAnswer") as string,
+    };
+
+    updateMutation.mutate({ id: editingQuestion.id, data });
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm("Are you sure you want to delete this question?")) {
+      deleteMutation.mutate(id);
+    }
   };
 
   return (
@@ -132,10 +208,20 @@ export default function QuestionsPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" size="icon" data-testid={`button-edit-question-${question.id}`}>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => handleEditClick(question)}
+                    data-testid={`button-edit-question-${question.id}`}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" data-testid={`button-delete-question-${question.id}`}>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => handleDelete(question.id)}
+                    data-testid={`button-delete-question-${question.id}`}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -253,6 +339,108 @@ export default function QuestionsPage() {
               </Button>
               <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-question">
                 {createMutation.isPending ? "Adding..." : "Add Question"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Question</DialogTitle>
+            <DialogDescription>
+              Update the question details
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-domainId">Domain *</Label>
+                  <Select name="domainId" defaultValue={editingQuestion?.domainId.toString()} required>
+                    <SelectTrigger data-testid="select-edit-question-domain">
+                      <SelectValue placeholder="Select domain" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {domains?.map((domain) => (
+                        <SelectItem key={domain.id} value={domain.id.toString()}>
+                          {domain.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-type">Question Type *</Label>
+                  <Select name="type" defaultValue={editingQuestion?.type} required>
+                    <SelectTrigger data-testid="select-edit-question-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                      <SelectItem value="true_false">True/False</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-content">Question Content *</Label>
+                <Textarea
+                  id="edit-content"
+                  name="content"
+                  defaultValue={editingQuestion?.content}
+                  placeholder="Enter your question here..."
+                  rows={3}
+                  required
+                  data-testid="input-edit-question-content"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Answer Options *</Label>
+                {editOptions.map((option, index) => (
+                  <Input
+                    key={index}
+                    value={option}
+                    onChange={(e) => {
+                      const newOptions = [...editOptions];
+                      newOptions[index] = e.target.value;
+                      setEditOptions(newOptions);
+                    }}
+                    placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                    required={index < 2}
+                    data-testid={`input-edit-option-${index}`}
+                  />
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-correctAnswer">Correct Answer *</Label>
+                <Select name="correctAnswer" defaultValue={editingQuestion?.correctAnswer} required>
+                  <SelectTrigger data-testid="select-edit-correct-answer">
+                    <SelectValue placeholder="Select correct answer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editOptions.filter(opt => opt.trim() !== "").map((option, index) => (
+                      <SelectItem key={index} value={option}>
+                        {String.fromCharCode(65 + index)}. {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} data-testid="button-cancel-edit">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit">
+                {updateMutation.isPending ? "Updating..." : "Update Question"}
               </Button>
             </DialogFooter>
           </form>
