@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -28,8 +28,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { Exam, Domain } from "@shared/schema";
 
+type QuestionInput = {
+  type: "multiple_choice" | "true_false";
+  content: string;
+  options: string[];
+  correctAnswer: string;
+};
+
 export default function ExamsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [questions, setQuestions] = useState<QuestionInput[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState<number | null>(null);
   const { toast } = useToast();
 
   const { data: exams, isLoading } = useQuery<Exam[]>({
@@ -47,6 +56,8 @@ export default function ExamsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/exams"] });
       setIsCreateOpen(false);
+      setQuestions([]);
+      setSelectedDomain(null);
       toast({
         title: "Success",
         description: "Exam created successfully",
@@ -65,7 +76,7 @@ export default function ExamsPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    const data = {
+    const examData = {
       domainId: parseInt(formData.get("domainId") as string),
       title: formData.get("title") as string,
       description: formData.get("description") as string,
@@ -77,7 +88,61 @@ export default function ExamsPage() {
       enableTabDetection: formData.get("enableTabDetection") === "on",
     };
 
-    createMutation.mutate(data);
+    const questionsData = questions.map(q => ({
+      domainId: examData.domainId,
+      type: q.type,
+      content: q.content,
+      options: q.options.filter(opt => opt.trim() !== ""),
+      correctAnswer: q.correctAnswer,
+    }));
+
+    createMutation.mutate({
+      ...examData,
+      questions: questionsData,
+    });
+  };
+
+  const addQuestion = () => {
+    setQuestions([...questions, {
+      type: "multiple_choice",
+      content: "",
+      options: ["", "", "", ""],
+      correctAnswer: "",
+    }]);
+  };
+
+  const removeQuestion = (index: number) => {
+    setQuestions(questions.filter((_, i) => i !== index));
+  };
+
+  const updateQuestion = (index: number, field: keyof QuestionInput, value: any) => {
+    const updated = [...questions];
+    if (field === "type") {
+      if (value === "true_false") {
+        updated[index] = { 
+          ...updated[index], 
+          type: value, 
+          options: ["True", "False"],
+          correctAnswer: "" 
+        };
+      } else {
+        updated[index] = { 
+          ...updated[index], 
+          type: value, 
+          options: ["", "", "", ""],
+          correctAnswer: "" 
+        };
+      }
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setQuestions(updated);
+  };
+
+  const updateQuestionOption = (questionIndex: number, optionIndex: number, value: string) => {
+    const updated = [...questions];
+    updated[questionIndex].options[optionIndex] = value;
+    setQuestions(updated);
   };
 
   return (
@@ -123,15 +188,9 @@ export default function ExamsPage() {
                   </Badge>
                 </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Duration:</span>
-                    <span className="font-medium">{exam.duration} minutes</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Questions:</span>
-                    <span className="font-medium">{exam.questionCount}</span>
-                  </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Duration:</span>
+                  <span className="font-medium">{exam.duration} mins</span>
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -165,11 +224,11 @@ export default function ExamsPage() {
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Exam</DialogTitle>
             <DialogDescription>
-              Configure your examination settings and proctoring options
+              Configure exam settings and add questions
             </DialogDescription>
           </DialogHeader>
 
@@ -200,7 +259,11 @@ export default function ExamsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="domainId">Domain *</Label>
-                  <Select name="domainId" required>
+                  <Select 
+                    name="domainId" 
+                    required 
+                    onValueChange={(value) => setSelectedDomain(parseInt(value))}
+                  >
                     <SelectTrigger data-testid="select-domain">
                       <SelectValue placeholder="Select domain" />
                     </SelectTrigger>
@@ -280,10 +343,144 @@ export default function ExamsPage() {
                   <Switch id="enableTabDetection" name="enableTabDetection" defaultChecked data-testid="switch-tab-detection" />
                 </div>
               </div>
+
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Questions</h4>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={addQuestion}
+                    disabled={!selectedDomain}
+                    data-testid="button-add-question"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Question
+                  </Button>
+                </div>
+
+                {!selectedDomain && (
+                  <p className="text-sm text-muted-foreground">
+                    Select a domain first to add questions
+                  </p>
+                )}
+
+                {questions.length > 0 && (
+                  <div className="space-y-4">
+                    {questions.map((question, qIndex) => (
+                      <Card key={qIndex} className="p-4" data-testid={`question-builder-${qIndex}`}>
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <h5 className="font-medium">Question {qIndex + 1}</h5>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeQuestion(qIndex)}
+                              data-testid={`button-remove-question-${qIndex}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Question Type</Label>
+                            <Select
+                              value={question.type}
+                              onValueChange={(value) => updateQuestion(qIndex, "type", value)}
+                            >
+                              <SelectTrigger data-testid={`select-question-type-${qIndex}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                                <SelectItem value="true_false">True/False</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Question Content *</Label>
+                            <Textarea
+                              value={question.content}
+                              onChange={(e) => updateQuestion(qIndex, "content", e.target.value)}
+                              placeholder="Enter your question here..."
+                              rows={3}
+                              required
+                              data-testid={`textarea-question-content-${qIndex}`}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Options</Label>
+                            {question.type === "true_false" ? (
+                              <div className="space-y-2">
+                                <Input value="True" disabled />
+                                <Input value="False" disabled />
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {question.options.map((option, oIndex) => (
+                                  <Input
+                                    key={oIndex}
+                                    value={option}
+                                    onChange={(e) => updateQuestionOption(qIndex, oIndex, e.target.value)}
+                                    placeholder={`Option ${oIndex + 1}`}
+                                    data-testid={`input-question-option-${qIndex}-${oIndex}`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Correct Answer *</Label>
+                            <Select
+                              value={question.correctAnswer}
+                              onValueChange={(value) => updateQuestion(qIndex, "correctAnswer", value)}
+                              required
+                            >
+                              <SelectTrigger data-testid={`select-correct-answer-${qIndex}`}>
+                                <SelectValue placeholder="Select correct answer" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {question.type === "true_false" ? (
+                                  <>
+                                    <SelectItem value="True">True</SelectItem>
+                                    <SelectItem value="False">False</SelectItem>
+                                  </>
+                                ) : (
+                                  question.options
+                                    .filter(opt => opt.trim() !== "")
+                                    .map((option, idx) => (
+                                      <SelectItem key={idx} value={option}>
+                                        {option}
+                                      </SelectItem>
+                                    ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} data-testid="button-cancel">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setIsCreateOpen(false);
+                  setQuestions([]);
+                  setSelectedDomain(null);
+                }}
+                data-testid="button-cancel"
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-exam">

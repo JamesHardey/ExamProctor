@@ -118,9 +118,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/exams", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const validatedData = insertExamSchema.parse(req.body);
-      const exam = await storage.createExam(validatedData);
-      res.json(exam);
+      const { questions: questionsData, ...examData } = req.body;
+      const validatedExamData = insertExamSchema.parse(examData);
+      
+      if (questionsData && Array.isArray(questionsData) && questionsData.length > 0) {
+        const validatedQuestions = questionsData.map((q: any) => insertQuestionSchema.parse(q));
+        const exam = await storage.createExamWithQuestions(validatedExamData, validatedQuestions);
+        res.json(exam);
+      } else {
+        const exam = await storage.createExam(validatedExamData);
+        res.json(exam);
+      }
     } catch (error: any) {
       console.error("Error creating exam:", error);
       res.status(400).json({ message: error.message || "Failed to create exam" });

@@ -54,6 +54,7 @@ export interface IStorage {
   getExams(): Promise<Exam[]>;
   getExam(id: number): Promise<Exam | undefined>;
   createExam(exam: InsertExam): Promise<Exam>;
+  createExamWithQuestions(exam: InsertExam, questions: InsertQuestion[]): Promise<Exam>;
   updateExam(id: number, exam: Partial<InsertExam>): Promise<Exam>;
 
   // Candidate operations
@@ -236,6 +237,37 @@ export class DatabaseStorage implements IStorage {
       .insert(exams)
       .values(examData)
       .returning();
+    return exam;
+  }
+
+  async createExamWithQuestions(examData: InsertExam, questionsData: InsertQuestion[]): Promise<Exam> {
+    const exam = await db.transaction(async (tx) => {
+      const [newExam] = await tx
+        .insert(exams)
+        .values(examData)
+        .returning();
+      
+      if (questionsData && questionsData.length > 0) {
+        const createdQuestions = await tx
+          .insert(questions)
+          .values(questionsData.map(q => ({
+            ...q,
+            options: q.options as any,
+          })))
+          .returning();
+        
+        const examQuestionLinks = createdQuestions.map((q, index) => ({
+          examId: newExam.id,
+          questionId: q.id,
+          orderIndex: index,
+        }));
+        
+        await tx.insert(examQuestions).values(examQuestionLinks);
+      }
+      
+      return newExam;
+    });
+    
     return exam;
   }
 
