@@ -135,6 +135,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/exams/:id/questions", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const examId = parseInt(req.params.id);
+      const questions = await storage.getExamQuestions(examId);
+      res.json(questions);
+    } catch (error: any) {
+      console.error("Error fetching exam questions:", error);
+      res.status(500).json({ message: "Failed to fetch exam questions" });
+    }
+  });
+
+  app.post("/api/exams/:id/questions", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const examId = parseInt(req.params.id);
+      const questionsData = req.body.questions;
+      
+      if (!questionsData || !Array.isArray(questionsData) || questionsData.length === 0) {
+        return res.status(400).json({ message: "Questions array is required" });
+      }
+      
+      const validatedQuestions = questionsData.map((q: any) => insertQuestionSchema.parse(q));
+      await storage.addQuestionsToExam(examId, validatedQuestions);
+      res.json({ message: "Questions added successfully" });
+    } catch (error: any) {
+      console.error("Error adding questions to exam:", error);
+      res.status(400).json({ message: error.message || "Failed to add questions" });
+    }
+  });
+
   // Users route for candidate selection
   app.get("/api/users", isAuthenticated, isAdmin, async (req, res) => {
     try {

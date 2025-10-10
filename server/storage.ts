@@ -56,6 +56,8 @@ export interface IStorage {
   createExam(exam: InsertExam): Promise<Exam>;
   createExamWithQuestions(exam: InsertExam, questions: InsertQuestion[]): Promise<Exam>;
   updateExam(id: number, exam: Partial<InsertExam>): Promise<Exam>;
+  getExamQuestions(examId: number): Promise<Question[]>;
+  addQuestionsToExam(examId: number, questions: InsertQuestion[]): Promise<void>;
 
   // Candidate operations
   getCandidates(): Promise<Candidate[]>;
@@ -278,6 +280,53 @@ export class DatabaseStorage implements IStorage {
       .where(eq(exams.id, id))
       .returning();
     return exam;
+  }
+
+  async getExamQuestions(examId: number): Promise<Question[]> {
+    const result = await db
+      .select({
+        question: questions,
+        orderIndex: examQuestions.orderIndex,
+      })
+      .from(examQuestions)
+      .innerJoin(questions, eq(examQuestions.questionId, questions.id))
+      .where(eq(examQuestions.examId, examId))
+      .orderBy(examQuestions.orderIndex);
+    
+    return result.map(r => r.question);
+  }
+
+  async addQuestionsToExam(examId: number, questionsData: InsertQuestion[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      const existingLinks = await tx
+        .select()
+        .from(examQuestions)
+        .where(eq(examQuestions.examId, examId));
+      
+      const nextOrderIndex = existingLinks.length;
+      
+      const createdQuestions = await tx
+        .insert(questions)
+        .values(questionsData.map(q => ({
+          ...q,
+          options: q.options as any,
+        })))
+        .returning();
+      
+      const examQuestionLinks = createdQuestions.map((q, index) => ({
+        examId: examId,
+        questionId: q.id,
+        orderIndex: nextOrderIndex + index,
+      }));
+      
+      await tx.insert(examQuestions).values(examQuestionLinks);
+      
+      const newQuestionCount = existingLinks.length + createdQuestions.length;
+      await tx
+        .update(exams)
+        .set({ questionCount: newQuestionCount })
+        .where(eq(exams.id, examId));
+    });
   }
 
   // Candidate operations

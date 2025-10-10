@@ -37,7 +37,10 @@ type QuestionInput = {
 
 export default function ExamsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isManageQuestionsOpen, setIsManageQuestionsOpen] = useState(false);
+  const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [questions, setQuestions] = useState<QuestionInput[]>([]);
+  const [newQuestions, setNewQuestions] = useState<QuestionInput[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<number | null>(null);
   const { toast } = useToast();
 
@@ -47,6 +50,11 @@ export default function ExamsPage() {
 
   const { data: domains } = useQuery<Domain[]>({
     queryKey: ["/api/domains"],
+  });
+
+  const { data: examQuestions, refetch: refetchExamQuestions } = useQuery<any[]>({
+    queryKey: ["/api/exams", selectedExam?.id, "questions"],
+    enabled: !!selectedExam,
   });
 
   const createMutation = useMutation({
@@ -61,6 +69,29 @@ export default function ExamsPage() {
       toast({
         title: "Success",
         description: "Exam created successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addQuestionsMutation = useMutation({
+    mutationFn: async ({ examId, questions }: { examId: number; questions: any[] }) => {
+      return await apiRequest("POST", `/api/exams/${examId}/questions`, { questions });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/exams", selectedExam?.id, "questions"] });
+      setNewQuestions([]);
+      refetchExamQuestions();
+      toast({
+        title: "Success",
+        description: "Questions added successfully",
       });
     },
     onError: (error: Error) => {
@@ -123,7 +154,7 @@ export default function ExamsPage() {
           ...updated[index], 
           type: value, 
           options: ["True", "False"],
-          correctAnswer: "" 
+          correctAnswer: "True"
         };
       } else {
         updated[index] = { 
@@ -143,6 +174,68 @@ export default function ExamsPage() {
     const updated = [...questions];
     updated[questionIndex].options[optionIndex] = value;
     setQuestions(updated);
+  };
+
+  const addNewQuestion = () => {
+    setNewQuestions([...newQuestions, {
+      type: "multiple_choice",
+      content: "",
+      options: ["", "", "", ""],
+      correctAnswer: "",
+    }]);
+  };
+
+  const removeNewQuestion = (index: number) => {
+    setNewQuestions(newQuestions.filter((_, i) => i !== index));
+  };
+
+  const updateNewQuestion = (index: number, field: keyof QuestionInput, value: any) => {
+    const updated = [...newQuestions];
+    if (field === "type") {
+      if (value === "true_false") {
+        updated[index] = { 
+          ...updated[index], 
+          type: value, 
+          options: ["True", "False"],
+          correctAnswer: "True"
+        };
+      } else {
+        updated[index] = { 
+          ...updated[index], 
+          type: value, 
+          options: ["", "", "", ""],
+          correctAnswer: "" 
+        };
+      }
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+    setNewQuestions(updated);
+  };
+
+  const updateNewQuestionOption = (questionIndex: number, optionIndex: number, value: string) => {
+    const updated = [...newQuestions];
+    updated[questionIndex].options[optionIndex] = value;
+    setNewQuestions(updated);
+  };
+
+  const handleAddQuestionsSubmit = () => {
+    if (!selectedExam || newQuestions.length === 0) return;
+    
+    const questionsData = newQuestions.map(q => ({
+      domainId: selectedExam.domainId,
+      type: q.type,
+      content: q.content,
+      options: q.options.filter(opt => opt.trim() !== ""),
+      correctAnswer: q.correctAnswer,
+    }));
+
+    addQuestionsMutation.mutate({ examId: selectedExam.id, questions: questionsData });
+  };
+
+  const openManageQuestions = (exam: Exam) => {
+    setSelectedExam(exam);
+    setIsManageQuestionsOpen(true);
   };
 
   return (
@@ -198,9 +291,15 @@ export default function ExamsPage() {
                     <Eye className="h-4 w-4 mr-2" />
                     View
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1" data-testid={`button-edit-exam-${exam.id}`}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1" 
+                    onClick={() => openManageQuestions(exam)}
+                    data-testid={`button-edit-exam-${exam.id}`}
+                  >
                     <Pencil className="h-4 w-4 mr-2" />
-                    Edit
+                    Manage
                   </Button>
                 </div>
               </div>
@@ -488,6 +587,191 @@ export default function ExamsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isManageQuestionsOpen} onOpenChange={setIsManageQuestionsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Exam Questions</DialogTitle>
+            <DialogDescription>
+              {selectedExam?.title} - View existing questions and add new ones
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h4 className="font-medium">Existing Questions ({examQuestions?.length || 0})</h4>
+              {examQuestions && examQuestions.length > 0 ? (
+                <div className="space-y-3">
+                  {examQuestions.map((q: any, index: number) => (
+                    <Card key={q.id} className="p-4" data-testid={`existing-question-${index}`}>
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <h5 className="font-medium">Question {index + 1}</h5>
+                          <Badge variant="secondary">{q.type}</Badge>
+                        </div>
+                        <p className="text-sm">{q.content}</p>
+                        {q.options && q.options.length > 0 && (
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-medium">Options:</span> {q.options.join(", ")}
+                          </div>
+                        )}
+                        <div className="text-sm">
+                          <span className="font-medium text-green-600">Correct: {q.correctAnswer}</span>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No questions added yet</p>
+              )}
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Add New Questions</h4>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={addNewQuestion}
+                  data-testid="button-add-new-question"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Question
+                </Button>
+              </div>
+
+              {newQuestions.length > 0 && (
+                <div className="space-y-4">
+                  {newQuestions.map((question, qIndex) => (
+                    <Card key={qIndex} className="p-4" data-testid={`new-question-builder-${qIndex}`}>
+                      <div className="space-y-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <h5 className="font-medium">New Question {qIndex + 1}</h5>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeNewQuestion(qIndex)}
+                            data-testid={`button-remove-new-question-${qIndex}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Question Type</Label>
+                          <Select
+                            value={question.type}
+                            onValueChange={(value) => updateNewQuestion(qIndex, "type", value)}
+                          >
+                            <SelectTrigger data-testid={`select-new-question-type-${qIndex}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                              <SelectItem value="true_false">True/False</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Question Content *</Label>
+                          <Textarea
+                            value={question.content}
+                            onChange={(e) => updateNewQuestion(qIndex, "content", e.target.value)}
+                            placeholder="Enter your question here..."
+                            rows={3}
+                            required
+                            data-testid={`textarea-new-question-content-${qIndex}`}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Options</Label>
+                          {question.type === "true_false" ? (
+                            <div className="space-y-2">
+                              <Input value="True" disabled />
+                              <Input value="False" disabled />
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {question.options.map((option, oIndex) => (
+                                <Input
+                                  key={oIndex}
+                                  value={option}
+                                  onChange={(e) => updateNewQuestionOption(qIndex, oIndex, e.target.value)}
+                                  placeholder={`Option ${oIndex + 1}`}
+                                  data-testid={`input-new-question-option-${qIndex}-${oIndex}`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Correct Answer *</Label>
+                          <Select
+                            value={question.correctAnswer}
+                            onValueChange={(value) => updateNewQuestion(qIndex, "correctAnswer", value)}
+                            required
+                          >
+                            <SelectTrigger data-testid={`select-new-correct-answer-${qIndex}`}>
+                              <SelectValue placeholder="Select correct answer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {question.type === "true_false" ? (
+                                <>
+                                  <SelectItem value="True">True</SelectItem>
+                                  <SelectItem value="False">False</SelectItem>
+                                </>
+                              ) : (
+                                question.options
+                                  .filter(opt => opt.trim() !== "")
+                                  .map((option, idx) => (
+                                    <SelectItem key={idx} value={option}>
+                                      {option}
+                                    </SelectItem>
+                                  ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setIsManageQuestionsOpen(false);
+                setNewQuestions([]);
+                setSelectedExam(null);
+              }}
+              data-testid="button-cancel-manage"
+            >
+              Close
+            </Button>
+            {newQuestions.length > 0 && (
+              <Button 
+                type="button" 
+                onClick={handleAddQuestionsSubmit}
+                disabled={addQuestionsMutation.isPending}
+                data-testid="button-submit-new-questions"
+              >
+                {addQuestionsMutation.isPending ? "Adding..." : `Add ${newQuestions.length} Question${newQuestions.length > 1 ? 's' : ''}`}
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
