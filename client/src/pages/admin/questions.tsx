@@ -180,9 +180,9 @@ export default function QuestionsPage() {
         <div className="space-y-4">
           {questions.map((question) => (
             <Card key={question.id} className="p-6" data-testid={`question-card-${question.id}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-start gap-3">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 flex-1">
                     <Badge variant="outline" className="mt-1">
                       {question.type === "multiple_choice" ? "Multiple Choice" : "True/False"}
                     </Badge>
@@ -190,40 +190,47 @@ export default function QuestionsPage() {
                       {question.content}
                     </p>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 pl-20">
-                    {(question.options as string[]).map((option, index) => (
-                      <div
-                        key={index}
-                        className={`text-sm p-2 rounded-md ${
-                          option === question.correctAnswer
-                            ? "bg-chart-2/10 text-chart-2 font-medium"
-                            : "bg-muted/50"
-                        }`}
-                      >
-                        {String.fromCharCode(65 + index)}. {option}
-                      </div>
-                    ))}
+
+                  <div className="flex gap-2 shrink-0">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => handleEditClick(question)}
+                      data-testid={`button-edit-question-${question.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => handleDelete(question.id)}
+                      data-testid={`button-delete-question-${question.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => handleEditClick(question)}
-                    data-testid={`button-edit-question-${question.id}`}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => handleDelete(question.id)}
-                    data-testid={`button-delete-question-${question.id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                <div className="border-t pt-3">
+                  <p className="text-sm text-muted-foreground mb-2 font-medium">Answer Options:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {(question.options as string[]).map((option, index) => (
+                      <div
+                        key={index}
+                        className={`text-sm p-3 rounded-md border ${
+                          option === question.correctAnswer
+                            ? "bg-chart-2/10 border-chart-2 text-chart-2 font-medium"
+                            : "bg-muted/30 border-border"
+                        }`}
+                        data-testid={`option-${question.id}-${index}`}
+                      >
+                        <span className="font-semibold">{String.fromCharCode(65 + index)}.</span> {option}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    ✓ Correct Answer: <span className="font-medium text-chart-2">{question.correctAnswer}</span>
+                  </p>
                 </div>
               </div>
             </Card>
