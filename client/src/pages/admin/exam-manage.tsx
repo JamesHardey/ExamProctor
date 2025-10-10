@@ -786,7 +786,7 @@ export default function ExamManagePage() {
                   {importResults.errors.length > 0 && (
                     <div className="space-y-1 mt-2">
                       <p className="text-sm font-medium">Errors:</p>
-                      {importResults.errors.map((error, idx) => (
+                      {importResults.errors.map((error: string, idx: number) => (
                         <p key={idx} className="text-sm text-destructive">• {error}</p>
                       ))}
                     </div>
@@ -809,7 +809,7 @@ export default function ExamManagePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {importedCandidates.map((candidate, idx) => (
+                        {importedCandidates.map((candidate: any, idx: number) => (
                           <tr key={idx} className="border-t" data-testid={`imported-candidate-${idx}`}>
                             <td className="px-4 py-2 text-sm">{candidate.fullName}</td>
                             <td className="px-4 py-2 text-sm">{candidate.email}</td>
