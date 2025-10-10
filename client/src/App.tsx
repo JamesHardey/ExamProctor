@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -23,6 +23,16 @@ import AnalyticsPage from "@/pages/admin/analytics";
 // Candidate pages
 import MyExamsPage from "@/pages/candidate/my-exams";
 import ExamWrapper from "@/pages/candidate/exam-wrapper";
+
+function AdminRoute({ component: Component, ...rest }: any) {
+  const { isAdmin } = useAuth();
+  
+  if (!isAdmin) {
+    return <Redirect to="/" />;
+  }
+  
+  return <Component {...rest} />;
+}
 
 function Router() {
   const { isAuthenticated, isLoading, isAdmin } = useAuth();
@@ -52,6 +62,12 @@ function Router() {
         <>
           <Route path="/" component={MyExamsPage} />
           <Route path="/exam/:candidateId" component={ExamWrapper} />
+          <Route path="/exams">{() => <Redirect to="/" />}</Route>
+          <Route path="/questions">{() => <Redirect to="/" />}</Route>
+          <Route path="/candidates">{() => <Redirect to="/" />}</Route>
+          <Route path="/monitoring">{() => <Redirect to="/" />}</Route>
+          <Route path="/analytics">{() => <Redirect to="/" />}</Route>
+          <Route path="/domains">{() => <Redirect to="/" />}</Route>
         </>
       )}
       <Route component={NotFound} />

@@ -56,12 +56,23 @@ function updateUserSession(
 }
 
 async function upsertUser(claims: any) {
+  let role: "admin" | "candidate" = "candidate";
+  
+  if (claims["roles"]?.includes("admin")) {
+    role = "admin";
+  } else if (claims["is_admin"] === true || claims["isAdmin"] === true) {
+    role = "admin";
+  } else if (claims["email"]?.includes("admin")) {
+    role = "admin";
+  }
+  
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
+    role,
   });
 }
 

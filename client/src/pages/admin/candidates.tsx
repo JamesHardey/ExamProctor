@@ -194,9 +194,10 @@ export default function CandidatesPage() {
             Import CSV
           </Button>
           <Button onClick={() => setIsAssignOpen(true)} data-testid="button-assign-exam">
-          <UserPlus className="h-4 w-4 mr-2" />
-          Assign Exam
-        </Button>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Assign Exam
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
