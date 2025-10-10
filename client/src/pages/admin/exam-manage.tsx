@@ -627,13 +627,45 @@ export default function ExamManagePage() {
                 </h4>
                 {examQuestions.map((q, index) => (
                   <Card key={q.id} className="p-4" data-testid={`existing-question-${index}`}>
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between">
-                        <Badge variant="outline">{q.type === "multiple_choice" ? "Multiple Choice" : "True/False"}</Badge>
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-2 flex-1">
+                          <Badge variant="outline" className="mt-1">{q.type === "multiple_choice" ? "Multiple Choice" : "True/False"}</Badge>
+                          <p className="font-medium flex-1">{q.content}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            // Navigate to Questions page to edit
+                            window.location.href = '/admin/questions';
+                          }}
+                          data-testid={`button-edit-existing-${index}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <p className="font-medium">{q.content}</p>
-                      <div className="text-sm text-muted-foreground">
-                        <strong>Correct Answer:</strong> {q.correctAnswer}
+                      
+                      <div className="border-t pt-3">
+                        <p className="text-xs text-muted-foreground mb-2 font-medium">Answer Options:</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {(q.options as string[]).map((option, oIndex) => (
+                            <div
+                              key={oIndex}
+                              className={`text-sm p-2 rounded-md border ${
+                                option === q.correctAnswer
+                                  ? "bg-chart-2/10 border-chart-2 text-chart-2 font-medium"
+                                  : "bg-muted/30 border-border"
+                              }`}
+                              data-testid={`existing-option-${index}-${oIndex}`}
+                            >
+                              <span className="font-semibold">{String.fromCharCode(65 + oIndex)}.</span> {option}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ✓ Correct Answer: <span className="font-medium text-chart-2">{q.correctAnswer}</span>
+                        </p>
                       </div>
                     </div>
                   </Card>
