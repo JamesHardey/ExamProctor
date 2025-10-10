@@ -15,6 +15,9 @@ import {
   insertProctorLogSchema,
 } from "@shared/schema";
 import { randomBytes } from "crypto";
+import bcrypt from "bcrypt";
+
+const SALT_ROUNDS = 12;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -368,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const candidate of candidates) {
         try {
-          const { email, firstName, lastName, examId } = candidate;
+          const { email, firstName, lastName, department, matricNo, examId, password } = candidate;
           
           // Fetch exam for email invitation
           const exam = await storage.getExam(parseInt(examId));
@@ -377,25 +380,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let user = await storage.getUserByEmail(email);
           
           if (!user) {
-            // Generate invitation token for new candidates
-            const invitationToken = generateInvitationToken();
+            // Hash the provided password
+            const passwordHash = password ? await bcrypt.hash(password, SALT_ROUNDS) : undefined;
             
             user = await storage.createUser({
               id: crypto.randomUUID(),
               email,
               firstName: firstName || '',
               lastName: lastName || '',
+              department: department || null,
+              matricNo: matricNo || null,
               role: "candidate",
-              invitationToken,
+              passwordHash,
               invitedAt: new Date(),
             });
-            
-            // Send invitation email with token if exam exists
-            if (exam) {
-              const emailSent = await sendInvitationEmail(user.email, invitationToken, exam);
-              if (!emailSent && isEmailConfigured()) {
-                console.error("Failed to send invitation email to:", user.email);
-              }
+          } else {
+            // Update existing user with new information
+            if (password) {
+              const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+              user = await storage.updateUser(user.id, {
+                firstName: firstName || user.firstName,
+                lastName: lastName || user.lastName,
+                department: department || user.department,
+                matricNo: matricNo || user.matricNo,
+                passwordHash,
+              });
+            } else {
+              user = await storage.updateUser(user.id, {
+                firstName: firstName || user.firstName,
+                lastName: lastName || user.lastName,
+                department: department || user.department,
+                matricNo: matricNo || user.matricNo,
+              });
             }
           }
 

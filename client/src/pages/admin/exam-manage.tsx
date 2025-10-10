@@ -21,6 +21,8 @@ import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles } from "lucide-rea
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { Exam, Domain } from "@shared/schema";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
 
 type QuestionInput = {
   type: "multiple_choice" | "true_false";
@@ -37,6 +39,8 @@ export default function ExamManagePage() {
   const [newQuestions, setNewQuestions] = useState<QuestionInput[]>([]);
   const [useAI, setUseAI] = useState(false);
   const [aiQuestionCount, setAiQuestionCount] = useState(5);
+  const [importResults, setImportResults] = useState<any>(null);
+  const [importedCandidates, setImportedCandidates] = useState<any[]>([]);
   
   // Form state for settings
   const [formData, setFormData] = useState({
@@ -231,6 +235,122 @@ export default function ExamManagePage() {
     }));
 
     addQuestionsMutation.mutate({ examId: exam.id, questions: questionsData });
+  };
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !exam) return;
+
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    const processData = async (rows: any[]) => {
+      const candidatesData = rows.map((row: any) => {
+        const fullName = row['FULL NAME'] || row['Full Name'] || row['full name'] || '';
+        const nameParts = fullName.trim().split(/\s+/);
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        const password = generatePassword();
+
+        return {
+          email: row['EMAIL'] || row['Email'] || row['email'] || '',
+          firstName,
+          lastName,
+          fullName,
+          department: row['DEPT'] || row['Dept'] || row['dept'] || '',
+          matricNo: row['MATRIC NO'] || row['Matric No'] || row['matric no'] || '',
+          examId: exam.id,
+          password,
+        };
+      }).filter(c => c.email); // Filter out rows without email
+
+      if (candidatesData.length === 0) {
+        toast({
+          title: "Error",
+          description: "No valid candidates found in file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        const response = await apiRequest("POST", "/api/candidates/bulk-import", {
+          candidates: candidatesData,
+        });
+
+        setImportResults(response);
+        setImportedCandidates(candidatesData);
+        
+        toast({
+          title: "Import Complete",
+          description: `Successfully imported ${response.successful} candidates`,
+        });
+      } catch (error: any) {
+        toast({
+          title: "Import Failed",
+          description: error.message || "Failed to import candidates",
+          variant: "destructive",
+        });
+      }
+    };
+
+    if (isExcel) {
+      // Handle Excel files
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const data = evt.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        processData(jsonData);
+      };
+      reader.readAsBinaryString(file);
+    } else {
+      // Handle CSV files
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          processData(results.data);
+        },
+        error: (error) => {
+          toast({
+            title: "Parse Error",
+            description: error.message || "Failed to parse CSV file",
+            variant: "destructive",
+          });
+        },
+      });
+    }
+  };
+
+  const handleDownloadCredentials = () => {
+    if (importedCandidates.length === 0) return;
+
+    const csvContent = Papa.unparse(importedCandidates.map(c => ({
+      'Full Name': c.fullName,
+      'Email': c.email,
+      'Department': c.department,
+      'Matric No': c.matricNo,
+      'Password': c.password,
+    })));
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exam?.title || 'exam'}-credentials.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   if (!examId || examLoading) {
@@ -632,10 +752,82 @@ export default function ExamManagePage() {
 
         <TabsContent value="candidates" className="space-y-4">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Manage Candidates</h3>
-            <p className="text-sm text-muted-foreground">
-              Upload and manage candidates for this exam (coming soon)
-            </p>
+            <h3 className="text-lg font-semibold mb-4">Import Candidates</h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="csv-upload">Upload CSV or Excel File</Label>
+                <Input
+                  id="csv-upload"
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileUpload}
+                  data-testid="input-csv-upload"
+                />
+                <p className="text-sm text-muted-foreground">
+                  File should have columns: FULL NAME, EMAIL, DEPT, MATRIC NO
+                </p>
+              </div>
+              
+              {importResults && (
+                <div className="space-y-2 p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium">Import Results</h4>
+                  <p className="text-sm">
+                    ✓ Successfully imported: <span className="font-semibold">{importResults.successful}</span>
+                  </p>
+                  {importResults.failed > 0 && (
+                    <p className="text-sm text-destructive">
+                      ✗ Failed: <span className="font-semibold">{importResults.failed}</span>
+                    </p>
+                  )}
+                  {importResults.errors.length > 0 && (
+                    <div className="space-y-1 mt-2">
+                      <p className="text-sm font-medium">Errors:</p>
+                      {importResults.errors.map((error, idx) => (
+                        <p key={idx} className="text-sm text-destructive">• {error}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {importedCandidates.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Successfully Imported Candidates ({importedCandidates.length})</h4>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm font-medium">Full Name</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium">Email</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium">Department</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium">Matric No</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium">Password</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importedCandidates.map((candidate, idx) => (
+                          <tr key={idx} className="border-t" data-testid={`imported-candidate-${idx}`}>
+                            <td className="px-4 py-2 text-sm">{candidate.fullName}</td>
+                            <td className="px-4 py-2 text-sm">{candidate.email}</td>
+                            <td className="px-4 py-2 text-sm">{candidate.department}</td>
+                            <td className="px-4 py-2 text-sm">{candidate.matricNo}</td>
+                            <td className="px-4 py-2 text-sm font-mono">{candidate.password}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadCredentials}
+                    data-testid="button-download-credentials"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Credentials
+                  </Button>
+                </div>
+              )}
+            </div>
           </Card>
         </TabsContent>
 
