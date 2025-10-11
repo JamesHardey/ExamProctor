@@ -11,6 +11,7 @@ const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "noreply@smartexam.com";
 let transporter: nodemailer.Transporter | null = null;
 
 if (SMTP_HOST && SMTP_USER && SMTP_PASSWORD) {
+  console.log(`[SMTP] Configuring with host: ${SMTP_HOST}, port: ${SMTP_PORT}, from: ${SMTP_FROM_EMAIL}`);
   transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
@@ -19,6 +20,12 @@ if (SMTP_HOST && SMTP_USER && SMTP_PASSWORD) {
       user: SMTP_USER,
       pass: SMTP_PASSWORD,
     },
+  });
+} else {
+  console.warn("[SMTP] Missing configuration:", {
+    hasHost: !!SMTP_HOST,
+    hasUser: !!SMTP_USER,
+    hasPassword: !!SMTP_PASSWORD,
   });
 }
 
@@ -241,15 +248,23 @@ export async function sendPasswordResetEmail(
   `;
 
   try {
-    await transporter.sendMail({
+    console.log(`[EMAIL] Attempting to send password reset email to: ${email}`);
+    const result = await transporter.sendMail({
       from: SMTP_FROM_EMAIL,
       to: email,
       subject: "Password Reset Request - SmartExam Proctor",
       html: htmlContent,
     });
+    console.log(`[EMAIL] Password reset email sent successfully to ${email}. Message ID: ${result.messageId}`);
     return true;
-  } catch (error) {
-    console.error("Failed to send password reset email:", error);
+  } catch (error: any) {
+    console.error("[EMAIL] Failed to send password reset email:", {
+      to: email,
+      from: SMTP_FROM_EMAIL,
+      error: error.message,
+      code: error.code,
+      response: error.response,
+    });
     return false;
   }
 }

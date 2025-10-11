@@ -29,6 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/forgot-password", async (req, res) => {
     try {
       const { email } = req.body;
+      console.log(`[FORGOT-PASSWORD] Request received for email: ${email}`);
 
       if (!email) {
         return res.status(400).json({ message: "Email is required" });
@@ -38,8 +39,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Always return success to prevent email enumeration
       if (!user || user.role !== "admin") {
+        console.log(`[FORGOT-PASSWORD] No admin user found for email: ${email}`);
         return res.json({ message: "If an account exists, a password reset link has been sent to your email" });
       }
+
+      console.log(`[FORGOT-PASSWORD] Admin user found: ${user.email} (${user.id})`);
 
       // Generate reset token (plaintext for email)
       const resetToken = randomBytes(32).toString("hex");
@@ -50,6 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save hashed token to database
       await storage.setResetPasswordToken(user.id, hashedToken, expiry);
+      console.log(`[FORGOT-PASSWORD] Reset token saved to database for user: ${user.email}`);
 
       // Send email with plaintext token
       const emailSent = await sendPasswordResetEmail(
@@ -60,12 +65,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (!emailSent && process.env.NODE_ENV === "development") {
-        console.log("Email sending failed, but token saved. Reset link:", resetToken);
+        const resetLink = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : "http://localhost:5000"}/admin/reset-password?token=${resetToken}`;
+        console.log("\n========================================");
+        console.log("[FORGOT-PASSWORD] Email sending failed!");
+        console.log("Reset link for development:", resetLink);
+        console.log("========================================\n");
       }
 
       res.json({ message: "If an account exists, a password reset link has been sent to your email" });
     } catch (error: any) {
-      console.error("Error in forgot password:", error);
+      console.error("[FORGOT-PASSWORD] Error:", error);
       res.status(500).json({ message: "Failed to process password reset request" });
     }
   });
