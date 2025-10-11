@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin, generateInvitationToken } from "./auth";
-import { sendInvitationEmail, isEmailConfigured, sendCandidateCredentials } from "./email";
+import { sendInvitationEmail, isEmailConfigured, sendCandidateCredentials, sendPasswordResetEmail } from "./email";
 import { generateQuestionsWithAI } from "./ai";
 import {
   insertDomainSchema,
@@ -24,6 +24,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Note: Auth routes are now in server/auth.ts
+
+  // Password Reset routes
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      
+      // Always return success to prevent email enumeration
+      if (!user || user.role !== "admin") {
+        return res.json({ message: "If an account exists, a password reset link has been sent to your email" });
+      }
+
+      // Generate reset token
+      const resetToken = randomBytes(32).toString("hex");
+      const expiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+      // Save token to database
+      await storage.setResetPasswordToken(user.id, resetToken, expiry);
+
+      // Send email
+      const emailSent = await sendPasswordResetEmail(
+        user.email,
+        user.firstName || "Admin",
+        user.lastName || "User",
+        resetToken
+      );
+
+      if (!emailSent) {
+        console.log("Email sending failed, but token saved. Reset link:", resetToken);
+      }
+
+      res.json({ message: "If an account exists, a password reset link has been sent to your email" });
+    } catch (error: any) {
+      console.error("Error in forgot password:", error);
+      res.status(500).json({ message: "Failed to process password reset request" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and password are required" });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+
+      // Find user by reset token
+      const user = await storage.getUserByResetToken(token);
+
+      if (!user || !user.resetPasswordExpiry) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+
+      // Check if token is expired
+      if (new Date() > new Date(user.resetPasswordExpiry)) {
+        return res.status(400).json({ message: "Reset token has expired" });
+      }
+
+      // Hash new password
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+      // Update password
+      await storage.updateUser(user.id, { passwordHash });
+
+      // Clear reset token
+      await storage.clearResetPasswordToken(user.id);
+
+      res.json({ message: "Password reset successful" });
+    } catch (error: any) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
 
   // Administrator Management routes
   app.get("/api/administrators", isAuthenticated, isAdmin, async (req, res) => {

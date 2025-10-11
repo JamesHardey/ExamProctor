@@ -34,6 +34,8 @@ export const users = pgTable("users", {
   passwordHash: varchar("password_hash"),
   invitationToken: varchar("invitation_token"),
   invitedAt: timestamp("invited_at"),
+  resetPasswordToken: varchar("reset_password_token"),
+  resetPasswordExpiry: timestamp("reset_password_expiry"),
   role: varchar("role", { enum: ["admin", "candidate"] }).notNull().default("candidate"),
   department: varchar("department", { length: 255 }),
   matricNo: varchar("matric_no", { length: 100 }),

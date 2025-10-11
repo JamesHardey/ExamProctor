@@ -146,6 +146,121 @@ export function isEmailConfigured(): boolean {
   return !!transporter;
 }
 
+export async function sendPasswordResetEmail(
+  email: string,
+  firstName: string,
+  lastName: string,
+  resetToken: string
+): Promise<boolean> {
+  if (!transporter) {
+    console.warn("SMTP not configured. Password reset email would be sent to:", email);
+    console.log("Reset link:", getPasswordResetLink(resetToken));
+    return false;
+  }
+
+  const resetLink = getPasswordResetLink(resetToken);
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+          }
+          .content {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+          }
+          .button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+          }
+          .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+          }
+          .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            color: #6c757d;
+            font-size: 14px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${firstName} ${lastName},</p>
+          <p>We received a request to reset your password for your SmartExam Proctor administrator account.</p>
+          
+          <p>Click the button below to reset your password:</p>
+          
+          <a href="${resetLink}" class="button">Reset Password</a>
+          
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #667eea;">${resetLink}</p>
+          
+          <div class="warning">
+            <strong>Important:</strong> This link will expire in 1 hour for security reasons.
+          </div>
+          
+          <p>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+          
+          <div class="footer">
+            <p>For security reasons, please do not share this link with anyone.</p>
+            <p>© ${new Date().getFullYear()} SmartExam Proctor. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: SMTP_FROM_EMAIL,
+      to: email,
+      subject: "Password Reset Request - SmartExam Proctor",
+      html: htmlContent,
+    });
+    return true;
+  } catch (error) {
+    console.error("Failed to send password reset email:", error);
+    return false;
+  }
+}
+
+function getPasswordResetLink(token: string): string {
+  const baseUrl = process.env.REPLIT_DOMAINS
+    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+    : "http://localhost:5000";
+  return `${baseUrl}/admin/reset-password?token=${token}`;
+}
+
 export interface CandidateEmailData {
   email: string;
   firstName: string;
