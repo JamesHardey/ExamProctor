@@ -21,12 +21,14 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
 - **Candidate Features:** My Exams view, pre-exam checks, proctored exam sessions (one question at a time, timer, webcam, microphone, fullscreen, tab switch detection, auto-save), and result viewing.
   - **Exam Access Control:** Draft exams filtered on both frontend and backend, inactive (archived) exams prevent new attempts but allow result viewing
 - **Advanced Proctoring:**
-    - **AI Face Detection:** TensorFlow.js BlazeFace model detects no face or multiple faces, logging high-severity violations.
-    - **Microphone Audio Detection:** Monitors audio levels, logging prolonged silence (low severity) or high background noise (medium severity).
+    - **AI Face Detection:** TensorFlow.js BlazeFace model detects no face or multiple faces, logging high-severity violations. **3-strike warning system**: Candidates receive visual warnings (1/3, 2/3, 3/3) when face is not detected for 10+ seconds; auto-logout after 3rd strike.
+    - **Microphone Audio Detection:** Monitors audio levels, logging prolonged silence (low severity) or high background noise (medium severity). **3-strike warning system**: Candidates receive visual warnings for excessive noise (>80 audio level for 3+ seconds); auto-logout after 3rd strike.
     - **Fullscreen Enforcement:** Automatically enters fullscreen, detects exits, and re-enters.
-    - **Tab Switch Detection:** Logs window/tab changes.
+    - **Tab Switch Detection:** Logs window/tab changes. **10-second auto-logout**: When candidate leaves tab/minimizes window, a 10-second countdown begins with visual timer; auto-logout if not returned within 10 seconds. Countdown cancels if candidate returns to tab.
+    - **Warning Indicators:** Real-time visual badges in exam header display active warning counts (Noise: X/3, Focus: X/3) and tab switch countdown timer (Logout in: Xs) with AlertTriangle icons.
     - **Event Logging:** Stores all proctoring events with timestamps and severity.
     - **Question Randomization:** Uses a unique random seed per candidate to randomize question order and options.
+    - **Responsive UI:** Question navigation grid with flex-wrap for large question sets, mobile-optimized header and layout with responsive padding and text sizing.
 - **Authentication:** Password-based authentication with bcrypt, session management (secure cookies in production only), admin registration, candidate invitation workflow via email, and password reset functionality for administrators with email-based token validation (tokens are hashed before storage and expire after 1 hour).
 - **Bulk Operations:** CSV import for candidates and CSV/PDF export for exam results, proctoring logs, and analytics reports using `jsPDF` and `PapaParse`.
 - **Real-time Communication:** WebSockets for live monitoring and alerts.
