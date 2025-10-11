@@ -414,6 +414,10 @@ export default function ExamSessionPage({
     mutationFn: async (data: any) => {
       return await apiRequest("POST", "/api/responses", data);
     },
+    onSuccess: () => {
+      // Invalidate session data to refresh responses and show answered questions
+      queryClient.invalidateQueries({ queryKey: [`/api/exam-session/${candidateId}`] });
+    },
   });
 
   const submitMutation = useMutation({
@@ -470,6 +474,12 @@ export default function ExamSessionPage({
       newFlagged.add(currentQuestionIndex);
     }
     setFlaggedQuestions(newFlagged);
+  };
+
+  const isQuestionAnswered = (questionIndex: number) => {
+    if (!sessionData) return false;
+    const question = sessionData.randomizedQuestions[questionIndex];
+    return sessionData.responses.some((r: any) => r.questionId === question.id);
   };
 
   const formatTime = (seconds: number) => {
@@ -613,26 +623,34 @@ export default function ExamSessionPage({
           {/* Question Number Grid - Responsive */}
           <div className="overflow-x-auto">
             <div className="flex flex-wrap gap-2 justify-center min-w-0 p-2">
-              {sessionData.randomizedQuestions.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentQuestionIndex(index)}
-                  className={`h-8 w-8 flex-shrink-0 rounded-md text-sm font-medium transition-colors ${
-                    index === currentQuestionIndex
-                      ? "bg-primary text-primary-foreground"
-                      : flaggedQuestions.has(index)
-                      ? "bg-chart-4/20 text-chart-4 border border-chart-4"
-                      : "bg-muted hover-elevate"
-                  }`}
-                  data-testid={`nav-question-${index}`}
-                >
-                  {index + 1}
-                </button>
-              ))}
+              {sessionData.randomizedQuestions.map((_, index) => {
+                const isAnswered = isQuestionAnswered(index);
+                const isCurrent = index === currentQuestionIndex;
+                const isFlagged = flaggedQuestions.has(index);
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentQuestionIndex(index)}
+                    className={`h-8 w-8 flex-shrink-0 rounded-md text-sm font-medium transition-colors ${
+                      isCurrent
+                        ? "bg-primary text-primary-foreground"
+                        : isFlagged
+                        ? "bg-chart-4/20 text-chart-4 border border-chart-4"
+                        : isAnswered
+                        ? "bg-chart-2/20 text-chart-2 border border-chart-2"
+                        : "bg-muted hover-elevate"
+                    }`}
+                    data-testid={`nav-question-${index}`}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Previous/Next Buttons */}
+          {/* Previous/Next/Submit Buttons */}
           <div className="flex items-center justify-between gap-4">
             <Button
               variant="outline"
@@ -644,7 +662,17 @@ export default function ExamSessionPage({
               Previous
             </Button>
 
-            {currentQuestionIndex === sessionData.randomizedQuestions.length - 1 ? (
+            <div className="flex gap-2">
+              {currentQuestionIndex < sessionData.randomizedQuestions.length - 1 && (
+                <Button
+                  variant="outline"
+                  onClick={handleNext}
+                  data-testid="button-next"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              )}
               <Button
                 onClick={() => submitMutation.mutate()}
                 disabled={submitMutation.isPending}
@@ -652,15 +680,7 @@ export default function ExamSessionPage({
               >
                 {submitMutation.isPending ? "Submitting..." : "Submit Exam"}
               </Button>
-            ) : (
-              <Button
-                onClick={handleNext}
-                data-testid="button-next"
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            )}
+            </div>
           </div>
         </div>
 
