@@ -27,7 +27,7 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
     - **Tab Switch Detection:** Logs window/tab changes.
     - **Event Logging:** Stores all proctoring events with timestamps and severity.
     - **Question Randomization:** Uses a unique random seed per candidate to randomize question order and options.
-- **Authentication:** Password-based authentication with bcrypt, session management (secure cookies in production only), admin registration, and candidate invitation workflow via email.
+- **Authentication:** Password-based authentication with bcrypt, session management (secure cookies in production only), admin registration, candidate invitation workflow via email, and password reset functionality for administrators with email-based token validation (tokens are hashed before storage and expire after 1 hour).
 - **Bulk Operations:** CSV import for candidates and CSV/PDF export for exam results, proctoring logs, and analytics reports using `jsPDF` and `PapaParse`.
 - **Real-time Communication:** WebSockets for live monitoring and alerts.
 
