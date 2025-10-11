@@ -35,9 +35,10 @@ export default function ExamWrapper() {
     }
   }, [candidate?.status]);
 
-  const { data: examData } = useQuery({
+  const { data: examData, error: examError, isError: isExamError } = useQuery({
     queryKey: [`/api/exam-session/${candidateId}`],
-    enabled: !!candidateId,
+    enabled: !!candidateId && stage !== "results",
+    retry: false,
   });
 
   const startExamMutation = useMutation({
@@ -75,6 +76,21 @@ export default function ExamWrapper() {
     );
   }
 
+  // Show error message for draft or archived exams
+  if (isExamError && examError) {
+    const errorMessage = examError instanceof Error ? examError.message : "Unable to access this exam";
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-md w-full text-center space-y-4">
+          <h1 className="text-2xl font-semibold" data-testid="text-exam-error-title">Exam Unavailable</h1>
+          <p className="text-muted-foreground" data-testid="text-exam-error-message">
+            {errorMessage}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (stage === "results") {
     return <ExamResults candidateId={candidateId} />;
   }
@@ -85,7 +101,7 @@ export default function ExamWrapper() {
 
   return (
     <PreExamCheck
-      examTitle={examData?.examTitle || candidate?.exam?.title || "Examination"}
+      examTitle={(examData as any)?.examTitle || "Examination"}
       onStart={handleStartExam}
       isStarting={startExamMutation.isPending}
     />

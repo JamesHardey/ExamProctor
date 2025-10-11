@@ -19,12 +19,24 @@ export default function MyExamsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: myExams, isLoading } = useQuery<CandidateWithExam[]>({
+  const { data: allExams, isLoading } = useQuery<CandidateWithExam[]>({
     queryKey: ["/api/my-exams"],
   });
 
+  // Filter out draft exams - candidates should never see them
+  const myExams = allExams?.filter(candidate => candidate.exam?.status !== "draft");
+
   // Simply navigate to exam page, don't change status yet
-  const handleStartExam = (candidateId: number) => {
+  const handleStartExam = (candidateId: number, exam?: Exam) => {
+    // Prevent starting archived exams
+    if (exam?.status === "archived") {
+      toast({
+        title: "Exam Archived",
+        description: "This exam has been archived and new attempts cannot be started.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLocation(`/exam/${candidateId}`);
   };
 
@@ -116,22 +128,44 @@ export default function MyExamsPage() {
 
                   <div className="pt-2">
                     {candidate.status === "assigned" ? (
-                      <Button 
-                        className="w-full" 
-                        onClick={() => handleStartExam(candidate.id)}
-                        data-testid={`button-start-exam-${candidate.id}`}
-                      >
-                        <Play className="h-4 w-4 mr-2" />
-                        Start Exam
-                      </Button>
+                      exam?.status === "archived" ? (
+                        <Button 
+                          variant="outline" 
+                          className="w-full" 
+                          disabled 
+                          data-testid={`button-archived-${candidate.id}`}
+                        >
+                          Exam Archived
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="w-full" 
+                          onClick={() => handleStartExam(candidate.id, exam)}
+                          data-testid={`button-start-exam-${candidate.id}`}
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          Start Exam
+                        </Button>
+                      )
                     ) : candidate.status === "in_progress" ? (
-                      <Button 
-                        className="w-full" 
-                        onClick={() => setLocation(`/exam/${candidate.id}`)}
-                        data-testid={`button-continue-exam-${candidate.id}`}
-                      >
-                        Continue Exam
-                      </Button>
+                      exam?.status === "archived" ? (
+                        <Button 
+                          variant="outline" 
+                          className="w-full" 
+                          disabled 
+                          data-testid={`button-archived-${candidate.id}`}
+                        >
+                          Exam Archived
+                        </Button>
+                      ) : (
+                        <Button 
+                          className="w-full" 
+                          onClick={() => setLocation(`/exam/${candidate.id}`)}
+                          data-testid={`button-continue-exam-${candidate.id}`}
+                        >
+                          Continue Exam
+                        </Button>
+                      )
                     ) : candidate.status === "completed" && exam?.showResults === "immediate" ? (
                       <Button 
                         variant="outline" 

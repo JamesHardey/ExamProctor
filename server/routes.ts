@@ -381,6 +381,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
+      // Check exam status before allowing start
+      const exam = await storage.getExam(candidate.examId);
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found" });
+      }
+
+      if (exam.status === "draft") {
+        return res.status(403).json({ message: "This exam is not yet available" });
+      }
+
+      if (exam.status === "archived") {
+        return res.status(403).json({ message: "This exam has been archived and new attempts cannot be started" });
+      }
+
       const updated = await storage.updateCandidate(candidateId, {
         status: "in_progress",
         startedAt: new Date(),
@@ -539,6 +553,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const exam = await storage.getExam(candidate.examId);
       if (!exam) {
         return res.status(404).json({ message: "Exam not found" });
+      }
+
+      // Check exam status restrictions
+      if (exam.status === "draft") {
+        return res.status(403).json({ message: "This exam is not yet available" });
+      }
+
+      // Archived exams: allow viewing completed results, but prevent new attempts
+      if (exam.status === "archived") {
+        if (candidate.status === "assigned" || candidate.status === "in_progress") {
+          return res.status(403).json({ message: "This exam has been archived and new attempts cannot be started" });
+        }
+        // Allow completed status to view results
       }
 
       // Get questions from domain
