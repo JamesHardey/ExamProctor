@@ -268,8 +268,12 @@ export default function ExamManagePage() {
 
   const addManualCandidateMutation = useMutation({
     mutationFn: async (candidateData: any) => {
-      // Generate secure password
-      const password = generatePassword();
+      // Check if user already exists
+      const checkResponse = await apiRequest("GET", `/api/users/check-email?email=${encodeURIComponent(candidateData.email)}`);
+      const userExists = checkResponse?.exists;
+      
+      // Only generate password for new users
+      const password = userExists ? null : generatePassword();
       
       // Use bulk import endpoint with single candidate
       const response = await apiRequest("POST", "/api/candidates/bulk-import", {
@@ -280,25 +284,27 @@ export default function ExamManagePage() {
           department: candidateData.department,
           matricNo: candidateData.matricNo,
           examId: examId,
-          password: password,
+          password: password || undefined, // Don't send password if user exists
         }]
       });
 
-      return { response, password, candidateData };
+      return { response, password, candidateData, userExists };
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/exams", examId, "candidates"] });
       refetchCandidates();
       
-      // Add to imported candidates for credential download
-      const newCandidate = {
-        fullName: `${data.candidateData.firstName} ${data.candidateData.lastName}`,
-        email: data.candidateData.email,
-        department: data.candidateData.department,
-        matricNo: data.candidateData.matricNo,
-        password: data.password,
-      };
-      setImportedCandidates(prev => [...prev, newCandidate]);
+      // Only add to imported candidates if it's a new user with a password
+      if (data.password && !data.userExists) {
+        const newCandidate = {
+          fullName: `${data.candidateData.firstName} ${data.candidateData.lastName}`,
+          email: data.candidateData.email,
+          department: data.candidateData.department,
+          matricNo: data.candidateData.matricNo,
+          password: data.password,
+        };
+        setImportedCandidates(prev => [...prev, newCandidate]);
+      }
       
       setManualCandidateForm({
         firstName: "",
@@ -307,11 +313,21 @@ export default function ExamManagePage() {
         department: "",
         matricNo: "",
       });
-      toast({
-        title: "Candidate Added Successfully",
-        description: `Email: ${data.candidateData.email} | Password: ${data.password}`,
-        duration: 10000,
-      });
+      
+      // Different toast message for existing vs new users
+      if (data.userExists) {
+        toast({
+          title: "Candidate Assigned to Exam",
+          description: `${data.candidateData.email} has been assigned to this exam. They will use their existing password.`,
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: "New Candidate Created",
+          description: `Email: ${data.candidateData.email} | Password: ${data.password}`,
+          duration: 10000,
+        });
+      }
     },
     onError: (error: Error) => {
       toast({

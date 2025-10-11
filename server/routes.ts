@@ -827,6 +827,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if email exists (admin only)
+  app.get("/api/users/check-email", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const email = req.query.email as string;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      res.json({ exists: !!user });
+    } catch (error) {
+      console.error("Error checking email:", error);
+      res.status(500).json({ message: "Failed to check email" });
+    }
+  });
+
   // Catch-all 404 handler for undefined API routes
   app.all("/api/auth/register-admin", (_req, res) => {
     res.status(404).json({ message: "API endpoint not found" });
