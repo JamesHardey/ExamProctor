@@ -63,6 +63,22 @@ export default function ExamSessionPage({
     }
   }, [sessionData]);
 
+  // Restore selected answer when navigating between questions
+  useEffect(() => {
+    if (!sessionData) return;
+    
+    const currentQuestion = sessionData.randomizedQuestions[currentQuestionIndex];
+    const savedResponse = sessionData.responses.find(
+      (r: any) => r.questionId === currentQuestion.id
+    );
+    
+    if (savedResponse) {
+      setSelectedAnswer(savedResponse.selectedAnswer);
+    } else {
+      setSelectedAnswer(null);
+    }
+  }, [currentQuestionIndex, sessionData]);
+
   // Timer
   useEffect(() => {
     if (timeRemaining <= 0) return;
@@ -437,14 +453,12 @@ export default function ExamSessionPage({
   const handleNext = () => {
     if (sessionData && currentQuestionIndex < sessionData.randomizedQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setSelectedAnswer(null);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
-      setSelectedAnswer(null);
     }
   };
 
