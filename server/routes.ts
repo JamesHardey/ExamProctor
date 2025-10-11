@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin, generateInvitationToken } from "./auth";
-import { sendInvitationEmail, isEmailConfigured } from "./email";
+import { sendInvitationEmail, isEmailConfigured, sendCandidateCredentials } from "./email";
 import { generateQuestionsWithAI } from "./ai";
 import {
   insertDomainSchema,
@@ -469,6 +469,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             randomSeed: Math.floor(Math.random() * 1000000).toString(),
           });
 
+          // Send email notification if password was provided (new candidate)
+          if (password && exam) {
+            try {
+              await sendCandidateCredentials({
+                email,
+                firstName: firstName || '',
+                lastName: lastName || '',
+                password,
+                examTitle: exam.title,
+                examDuration: exam.duration,
+              });
+            } catch (emailError) {
+              console.error(`Failed to send email to ${email}:`, emailError);
+              // Don't fail the import if email fails
+            }
+          }
+
           results.successful++;
         } catch (error: any) {
           results.failed++;
@@ -853,8 +870,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User ID and password required" });
       }
 
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
       await storage.updateUser(userId, { passwordHash });
+      
+      // Send email notification with new password
+      const candidates = await storage.getCandidatesByUser(userId);
+      if (candidates.length > 0 && user.email) {
+        // Get the first assigned exam for email context
+        const firstCandidate = candidates[0];
+        const exam = await storage.getExam(firstCandidate.examId);
+        
+        if (exam) {
+          try {
+            await sendCandidateCredentials({
+              email: user.email,
+              firstName: user.firstName || '',
+              lastName: user.lastName || '',
+              password,
+              examTitle: exam.title,
+              examDuration: exam.duration,
+            });
+          } catch (emailError) {
+            console.error(`Failed to send password reset email to ${user.email}:`, emailError);
+            // Don't fail the request if email fails
+          }
+        }
+      }
       
       res.json({ success: true, message: "Password reset successfully" });
     } catch (error) {

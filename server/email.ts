@@ -145,3 +145,270 @@ function getInvitationLink(token: string): string {
 export function isEmailConfigured(): boolean {
   return !!transporter;
 }
+
+export interface CandidateEmailData {
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+  examTitle: string;
+  examDuration: number;
+}
+
+export async function sendCandidateCredentials(data: CandidateEmailData): Promise<boolean> {
+  if (!transporter) {
+    console.warn("SMTP not configured. Email would be sent to:", data.email);
+    console.log("Login credentials - Email:", data.email, "Password:", data.password);
+    return false;
+  }
+
+  const loginUrl = process.env.REPLIT_DOMAINS
+    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}/login`
+    : "http://localhost:5000/login";
+
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          background-color: white;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          color: white;
+          padding: 30px;
+          text-align: center;
+        }
+        .header h1 {
+          margin: 0;
+          font-size: 24px;
+        }
+        .content {
+          padding: 30px;
+        }
+        .credentials-box {
+          background-color: #f0f9ff;
+          border: 2px solid #2563eb;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+        }
+        .credentials-box h3 {
+          margin-top: 0;
+          color: #2563eb;
+        }
+        .credential-item {
+          margin: 12px 0;
+        }
+        .credential-label {
+          font-weight: 600;
+          color: #4b5563;
+        }
+        .credential-value {
+          font-family: 'Courier New', monospace;
+          background-color: white;
+          padding: 8px 12px;
+          border-radius: 4px;
+          display: inline-block;
+          margin-left: 8px;
+          font-size: 16px;
+          border: 1px solid #e5e7eb;
+        }
+        .rules-box {
+          background-color: #fef2f2;
+          border-left: 4px solid #dc2626;
+          padding: 20px;
+          margin: 25px 0;
+        }
+        .rules-box h3 {
+          color: #dc2626;
+          margin-top: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .rules-box ol {
+          margin: 15px 0;
+          padding-left: 20px;
+        }
+        .rules-box li {
+          margin: 10px 0;
+          color: #374151;
+        }
+        .warning {
+          background-color: #fef3c7;
+          border: 2px solid #f59e0b;
+          padding: 15px;
+          border-radius: 6px;
+          margin: 20px 0;
+          font-weight: 500;
+          color: #92400e;
+        }
+        .login-button {
+          display: inline-block;
+          background-color: #2563eb;
+          color: white;
+          padding: 14px 32px;
+          text-decoration: none;
+          border-radius: 6px;
+          margin: 20px 0;
+          font-weight: 600;
+          text-align: center;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          background-color: #f9fafb;
+          color: #6b7280;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎓 SmartExam Proctor - Exam Invitation</h1>
+        </div>
+        
+        <div class="content">
+          <p>Dear <strong>${data.firstName} ${data.lastName}</strong>,</p>
+          
+          <p>You have been assigned to take the following exam:</p>
+          
+          <div class="credentials-box">
+            <h3>📋 Exam Details</h3>
+            <div class="credential-item">
+              <span class="credential-label">Exam Title:</span>
+              <span class="credential-value">${data.examTitle}</span>
+            </div>
+            <div class="credential-item">
+              <span class="credential-label">Duration:</span>
+              <span class="credential-value">${data.examDuration} minutes</span>
+            </div>
+            
+            <h3 style="margin-top: 25px;">🔑 Your Login Credentials</h3>
+            <div class="credential-item">
+              <span class="credential-label">Email:</span>
+              <span class="credential-value">${data.email}</span>
+            </div>
+            <div class="credential-item">
+              <span class="credential-label">Password:</span>
+              <span class="credential-value">${data.password}</span>
+            </div>
+          </div>
+
+          <div class="rules-box">
+            <h3>⚠️ Assessment Instructions - PLEASE READ CAREFULLY</h3>
+            <ol>
+              <li>You must stay in the assessment browser window at all times</li>
+              <li>Your webcam must stay on and your face visible throughout</li>
+              <li>No other people should be visible in the webcam frame</li>
+              <li>Do not switch tabs or minimize the browser window</li>
+              <li>Maintain a quiet environment during the assessment</li>
+              <li>Do not use any external resources or assistance</li>
+            </ol>
+          </div>
+
+          <div class="warning">
+            ⚠️ <strong>WARNING:</strong> If any of the above rules are violated, the system will automatically log you out and you will not be able to continue the assessment.
+          </div>
+
+          <p style="text-align: center;">
+            <a href="${loginUrl}" class="login-button">Login to Take Exam</a>
+          </p>
+
+          <p style="color: #6b7280; font-size: 14px;">
+            Please keep your login credentials secure and do not share them with anyone.
+          </p>
+          
+          <p style="margin-top: 30px;">
+            Good luck with your exam!
+          </p>
+          
+          <p>
+            Best regards,<br>
+            <strong>SmartExam Proctor Team</strong>
+          </p>
+        </div>
+
+        <div class="footer">
+          <p>This is an automated email. Please do not reply to this message.</p>
+          <p>© ${new Date().getFullYear()} SmartExam Proctor. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const emailText = `
+SmartExam Proctor - Exam Invitation
+
+Dear ${data.firstName} ${data.lastName},
+
+You have been assigned to take the following exam:
+
+EXAM DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Exam Title: ${data.examTitle}
+Duration: ${data.examDuration} minutes
+
+YOUR LOGIN CREDENTIALS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Email: ${data.email}
+Password: ${data.password}
+
+Login URL: ${loginUrl}
+
+ASSESSMENT INSTRUCTIONS - PLEASE READ CAREFULLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. You must stay in the assessment browser window at all times
+2. Your webcam must stay on and your face visible throughout
+3. No other people should be visible in the webcam frame
+4. Do not switch tabs or minimize the browser window
+5. Maintain a quiet environment during the assessment
+6. Do not use any external resources or assistance
+
+⚠️ WARNING: If any of the above rules are violated, the system will automatically log you out and you will not be able to continue the assessment.
+
+Please keep your login credentials secure and do not share them with anyone.
+
+Good luck with your exam!
+
+Best regards,
+SmartExam Proctor Team
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is an automated email. Please do not reply to this message.
+© ${new Date().getFullYear()} SmartExam Proctor. All rights reserved.
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: SMTP_FROM_EMAIL,
+      to: data.email,
+      subject: `Exam Invitation: ${data.examTitle}`,
+      text: emailText,
+      html: emailHtml,
+    });
+    console.log(`Credentials email sent to ${data.email} for exam: ${data.examTitle}`);
+    return true;
+  } catch (error) {
+    console.error("Failed to send credentials email:", error);
+    return false;
+  }
+}
