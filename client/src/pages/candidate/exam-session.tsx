@@ -576,7 +576,7 @@ export default function ExamSessionPage({
         <Card className="p-4 sm:p-8">
           <div className="space-y-6">
             <div className="flex items-start justify-between gap-4">
-              <h2 className="text-xl font-medium flex-1" data-testid="text-question-content">
+              <h2 className="text-lg sm:text-xl font-medium flex-1" data-testid="text-question-content">
                 {currentQuestion.content}
               </h2>
               <Button
@@ -651,25 +651,29 @@ export default function ExamSessionPage({
           </div>
 
           {/* Previous/Next/Submit Buttons */}
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4">
             <Button
               variant="outline"
               onClick={handlePrevious}
               disabled={currentQuestionIndex === 0}
               data-testid="button-previous"
+              className="w-full sm:w-auto"
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
-              Previous
+              <span className="hidden sm:inline">Previous</span>
+              <span className="sm:hidden">Prev</span>
             </Button>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               {currentQuestionIndex < sessionData.randomizedQuestions.length - 1 && (
                 <Button
                   variant="outline"
                   onClick={handleNext}
                   data-testid="button-next"
+                  className="flex-1 sm:flex-initial"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
+                  <span className="sm:hidden">Next</span>
                   <ChevronRight className="h-4 w-4 ml-2" />
                 </Button>
               )}
@@ -677,15 +681,17 @@ export default function ExamSessionPage({
                 onClick={() => submitMutation.mutate()}
                 disabled={submitMutation.isPending}
                 data-testid="button-submit"
+                className="flex-1 sm:flex-initial"
               >
-                {submitMutation.isPending ? "Submitting..." : "Submit Exam"}
+                <span className="hidden sm:inline">{submitMutation.isPending ? "Submitting..." : "Submit Exam"}</span>
+                <span className="sm:hidden">{submitMutation.isPending ? "Submitting..." : "Submit"}</span>
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Camera Preview (small, bottom corner) */}
-        <div className="fixed bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-primary shadow-lg">
+        {/* Camera Preview (small, bottom corner) - Responsive */}
+        <div className="fixed bottom-4 right-2 sm:right-4 w-32 h-24 sm:w-48 sm:h-36 rounded-lg overflow-hidden border-2 border-primary shadow-lg">
           <video
             ref={videoRef}
             autoPlay
@@ -696,7 +702,7 @@ export default function ExamSessionPage({
           />
           {!isCameraActive && (
             <div className="absolute inset-0 bg-muted flex items-center justify-center">
-              <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+              <AlertTriangle className="h-4 w-4 sm:h-6 sm:w-6 text-muted-foreground" />
             </div>
           )}
         </div>

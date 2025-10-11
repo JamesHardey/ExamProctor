@@ -85,18 +85,18 @@ export default function PreExamCheck({
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <Card className="max-w-2xl w-full p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold mb-2" data-testid="text-exam-title">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
+      <Card className="max-w-2xl w-full p-4 sm:p-8">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-semibold mb-2" data-testid="text-exam-title">
             {examTitle}
           </h1>
-          <p className="text-muted-foreground" data-testid="text-system-check">
+          <p className="text-sm sm:text-base text-muted-foreground" data-testid="text-system-check">
             System Compatibility Check
           </p>
         </div>
 
-        <div className="space-y-4 mb-8">
+        <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
           {checks.map((check) => {
             const Icon = check.icon;
             const StatusIcon = check.status === "passed" ? CheckCircle : check.status === "failed" ? XCircle : null;
@@ -104,24 +104,24 @@ export default function PreExamCheck({
             return (
               <div
                 key={check.name}
-                className="flex items-center gap-4 p-4 rounded-lg border border-border"
+                className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border border-border"
                 data-testid={`check-${check.name.toLowerCase().replace(/\s/g, "-")}`}
               >
-                <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${
+                <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
                   check.status === "passed" ? "bg-chart-2/10" :
                   check.status === "failed" ? "bg-destructive/10" :
                   "bg-muted"
                 }`}>
-                  <Icon className={`h-6 w-6 ${
+                  <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${
                     check.status === "passed" ? "text-chart-2" :
                     check.status === "failed" ? "text-destructive" :
                     "text-muted-foreground"
                   }`} />
                 </div>
 
-                <div className="flex-1">
-                  <p className="font-medium">{check.name}</p>
-                  <p className={`text-sm ${
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm sm:text-base">{check.name}</p>
+                  <p className={`text-xs sm:text-sm ${
                     check.status === "passed" ? "text-chart-2" :
                     check.status === "failed" ? "text-destructive" :
                     "text-muted-foreground"
@@ -156,9 +156,9 @@ export default function PreExamCheck({
         </div>
 
         {/* Instructions */}
-        <div className="bg-muted/50 rounded-lg p-4 mb-6">
-          <h3 className="font-medium mb-2">Before you start:</h3>
-          <ul className="text-sm text-muted-foreground space-y-1">
+        <div className="bg-muted/50 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+          <h3 className="font-medium text-sm sm:text-base mb-2">Before you start:</h3>
+          <ul className="text-xs sm:text-sm text-muted-foreground space-y-1">
             <li>• Ensure you are in a quiet, well-lit environment</li>
             <li>• Do not switch tabs or leave the exam window</li>
             <li>• Keep your face visible to the camera at all times</li>

@@ -70,10 +70,10 @@ export default function MyExamsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold mb-2" data-testid="text-page-title">My Exams</h1>
-        <p className="text-muted-foreground" data-testid="text-page-description">
+        <h1 className="text-2xl sm:text-3xl font-semibold mb-2" data-testid="text-page-title">My Exams</h1>
+        <p className="text-sm sm:text-base text-muted-foreground" data-testid="text-page-description">
           View and take your assigned examinations
         </p>
       </div>
@@ -92,14 +92,14 @@ export default function MyExamsPage() {
             const StatusIcon = statusInfo.icon;
 
             return (
-              <Card key={candidate.id} className="p-6 hover-elevate" data-testid={`exam-card-${candidate.id}`}>
-                <div className="space-y-4">
+              <Card key={candidate.id} className="p-4 sm:p-6 hover-elevate" data-testid={`exam-card-${candidate.id}`}>
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-2" data-testid={`text-exam-title-${candidate.id}`}>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-base sm:text-lg mb-2" data-testid={`text-exam-title-${candidate.id}`}>
                         {exam?.title || "Unknown Exam"}
                       </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
+                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                         {exam?.description}
                       </p>
                     </div>
@@ -118,7 +118,7 @@ export default function MyExamsPage() {
                       <span className="text-muted-foreground">Questions:</span>
                       <span className="font-medium">{exam?.questionCount}</span>
                     </div>
-                    {candidate.score !== null && (
+                    {candidate.score !== null && exam?.showResults === "immediate" && (
                       <div className="flex justify-between pt-2 border-t">
                         <span className="text-muted-foreground">Score:</span>
                         <span className="font-bold text-lg">{candidate.score}%</span>

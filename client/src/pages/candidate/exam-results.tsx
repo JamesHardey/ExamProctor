@@ -38,56 +38,56 @@ export default function ExamResults({ candidateId }: { candidateId: number }) {
   const showResults = resultVisibility === "immediate";
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <Card className="max-w-2xl w-full p-8">
-        <div className="text-center mb-8">
-          <div className={`h-20 w-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
+      <Card className="max-w-2xl w-full p-6 sm:p-8">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
             showResults && candidate.score !== null && candidate.score !== undefined && candidate.score >= 70 ? "bg-chart-2/10" : 
             showResults && candidate.score !== null && candidate.score !== undefined ? "bg-destructive/10" :
             "bg-muted"
           }`}>
             {showResults ? (
               candidate.score !== null && candidate.score !== undefined && candidate.score >= 70 ? (
-                <CheckCircle className="h-10 w-10 text-chart-2" />
+                <CheckCircle className="h-8 w-8 sm:h-10 sm:w-10 text-chart-2" />
               ) : (
-                <XCircle className="h-10 w-10 text-destructive" />
+                <XCircle className="h-8 w-8 sm:h-10 sm:w-10 text-destructive" />
               )
             ) : (
-              <Clock className="h-10 w-10 text-muted-foreground" />
+              <Clock className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />
             )}
           </div>
 
-          <h1 className="text-2xl font-semibold mb-2" data-testid="text-exam-title">
+          <h1 className="text-xl sm:text-2xl font-semibold mb-2" data-testid="text-exam-title">
             {exam?.title || "Exam Complete"}
           </h1>
 
           {showResults ? (
             <>
-              <p className="text-4xl font-bold mb-2" data-testid="text-score">
+              <p className="text-3xl sm:text-4xl font-bold mb-2" data-testid="text-score">
                 {candidate.score}%
               </p>
-              <p className="text-muted-foreground" data-testid="text-result-message">
+              <p className="text-sm sm:text-base text-muted-foreground" data-testid="text-result-message">
                 {candidate.score && candidate.score >= 70 
                   ? "Congratulations! You passed the exam."
                   : "You did not pass this time. Keep practicing!"}
               </p>
             </>
           ) : resultVisibility === "delayed" ? (
-            <p className="text-lg text-muted-foreground" data-testid="text-delayed-message">
+            <p className="text-base sm:text-lg text-muted-foreground" data-testid="text-delayed-message">
               Your exam has been submitted successfully. Results will be published later by your administrator.
             </p>
           ) : (
-            <p className="text-lg text-muted-foreground" data-testid="text-hidden-message">
+            <p className="text-base sm:text-lg text-muted-foreground" data-testid="text-hidden-message">
               Your exam has been submitted successfully. Results are not available for this exam.
             </p>
           )}
         </div>
 
         {showResults && candidate.completedAt && (
-          <div className="bg-muted/50 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-3 justify-center text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Completed on {new Date(candidate.completedAt).toLocaleString()}</span>
+          <div className="bg-muted/50 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+            <div className="flex items-center gap-2 sm:gap-3 justify-center text-xs sm:text-sm text-muted-foreground">
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="text-center">Completed on {new Date(candidate.completedAt).toLocaleString()}</span>
             </div>
           </div>
         )}
