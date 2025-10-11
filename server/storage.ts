@@ -36,8 +36,10 @@ export interface IStorage {
   setUserPassword(id: string, passwordHash: string): Promise<User>;
   setInvitationToken(id: string, token: string): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  getAdministrators(): Promise<User[]>;
   updateUser(id: string, data: Partial<UpsertUser>): Promise<User>;
   updateUserRole(id: string, role: "admin" | "candidate"): Promise<User>;
+  deleteUser(id: string): Promise<boolean>;
 
   // Domain operations
   getDomains(): Promise<Domain[]>;
@@ -177,6 +179,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async getAdministrators(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, "admin"));
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
   }
 
   // Domain operations

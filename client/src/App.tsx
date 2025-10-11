@@ -21,6 +21,7 @@ import CandidatesPage from "@/pages/admin/candidates";
 import MonitoringPage from "@/pages/admin/monitoring";
 import DomainsPage from "@/pages/admin/domains";
 import AnalyticsPage from "@/pages/admin/analytics";
+import AdministratorsPage from "@/pages/admin/administrators";
 
 // Candidate pages
 import MyExamsPage from "@/pages/candidate/my-exams";
@@ -68,6 +69,7 @@ function Router() {
           <Route path="/monitoring" component={MonitoringPage} />
           <Route path="/analytics" component={AnalyticsPage} />
           <Route path="/domains" component={DomainsPage} />
+          <Route path="/administrators" component={AdministratorsPage} />
         </>
       ) : (
         <>

@@ -25,6 +25,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Note: Auth routes are now in server/auth.ts
 
+  // Administrator Management routes
+  app.get("/api/administrators", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const admins = await storage.getAdministrators();
+      // Remove sensitive fields before sending to client
+      const sanitizedAdmins = admins.map(({ passwordHash, invitationToken, ...admin }) => admin);
+      res.json(sanitizedAdmins);
+    } catch (error) {
+      console.error("Error fetching administrators:", error);
+      res.status(500).json({ message: "Failed to fetch administrators" });
+    }
+  });
+
+  app.post("/api/administrators", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { email, firstName, lastName, password } = req.body;
+      
+      if (!email || !firstName || !lastName || !password) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+      // Create admin user
+      const admin = await storage.createUser({
+        email,
+        firstName,
+        lastName,
+        passwordHash,
+        role: "admin",
+      });
+
+      // Return without sensitive fields
+      const { passwordHash: _, invitationToken: __, ...sanitizedAdmin } = admin;
+      res.json(sanitizedAdmin);
+    } catch (error: any) {
+      console.error("Error creating administrator:", error);
+      res.status(400).json({ message: error.message || "Failed to create administrator" });
+    }
+  });
+
+  app.put("/api/administrators/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { email, firstName, lastName, password } = req.body;
+
+      if (!email || !firstName || !lastName) {
+        return res.status(400).json({ message: "Email, first name, and last name are required" });
+      }
+
+      // Check if email already exists for another user
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser && existingUser.id !== id) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+
+      const updateData: any = {
+        email,
+        firstName,
+        lastName,
+      };
+
+      // Only update password if provided
+      if (password) {
+        updateData.passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      }
+
+      const admin = await storage.updateUser(id, updateData);
+      if (!admin) {
+        return res.status(404).json({ message: "Administrator not found" });
+      }
+
+      // Return without sensitive fields
+      const { passwordHash: _, invitationToken: __, ...sanitizedAdmin } = admin;
+      res.json(sanitizedAdmin);
+    } catch (error: any) {
+      console.error("Error updating administrator:", error);
+      res.status(400).json({ message: error.message || "Failed to update administrator" });
+    }
+  });
+
+  app.delete("/api/administrators/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Prevent deleting yourself
+      if ((req as any).user?.id === id) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+
+      const result = await storage.deleteUser(id);
+      if (!result) {
+        return res.status(404).json({ message: "Administrator not found" });
+      }
+
+      res.json({ message: "Administrator deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting administrator:", error);
+      res.status(400).json({ message: error.message || "Failed to delete administrator" });
+    }
+  });
+
   // Admin Stats
   app.get("/api/admin/stats", isAuthenticated, isAdmin, async (req, res) => {
     try {
