@@ -100,12 +100,14 @@ export default function ExamManagePage() {
     enabled: !!examId,
   });
 
-  // Generate secure password for candidates
+  // Generate cryptographically secure password for candidates
   const generatePassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const array = new Uint8Array(8);
+    crypto.getRandomValues(array);
     let password = '';
     for (let i = 0; i < 8; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
+      password += chars.charAt(array[i] % chars.length);
     }
     return password;
   };
