@@ -16,8 +16,10 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
 
 **Technical Implementations:**
 - **Database Schema:** Includes tables for `users`, `sessions`, `domains`, `questions`, `exams`, `exam_questions`, `candidates`, `responses`, and `proctor_logs`, with defined relationships.
+  - **Exam Status Values:** `draft` (not accessible to candidates), `active` (full access), `inactive` (labeled as "Archived" - prevents new attempts but allows viewing completed results)
 - **Admin Features:** Dashboard, exam/question/candidate/domain management, live monitoring, analytics, and bulk import/export.
 - **Candidate Features:** My Exams view, pre-exam checks, proctored exam sessions (one question at a time, timer, webcam, microphone, fullscreen, tab switch detection, auto-save), and result viewing.
+  - **Exam Access Control:** Draft exams filtered on both frontend and backend, inactive (archived) exams prevent new attempts but allow result viewing
 - **Advanced Proctoring:**
     - **AI Face Detection:** TensorFlow.js BlazeFace model detects no face or multiple faces, logging high-severity violations.
     - **Microphone Audio Detection:** Monitors audio levels, logging prolonged silence (low severity) or high background noise (medium severity).
@@ -25,7 +27,7 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
     - **Tab Switch Detection:** Logs window/tab changes.
     - **Event Logging:** Stores all proctoring events with timestamps and severity.
     - **Question Randomization:** Uses a unique random seed per candidate to randomize question order and options.
-- **Authentication:** Password-based authentication with bcrypt, session management, admin registration, and candidate invitation workflow via email.
+- **Authentication:** Password-based authentication with bcrypt, session management (secure cookies in production only), admin registration, and candidate invitation workflow via email.
 - **Bulk Operations:** CSV import for candidates and CSV/PDF export for exam results, proctoring logs, and analytics reports using `jsPDF` and `PapaParse`.
 - **Real-time Communication:** WebSockets for live monitoring and alerts.
 

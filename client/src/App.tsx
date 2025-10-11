@@ -39,7 +39,13 @@ function AdminRoute({ component: Component, ...rest }: any) {
 function Router() {
   const { isAuthenticated, isLoading, isAdmin } = useAuth();
 
-  if (isLoading || !isAuthenticated) {
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return null;
+  }
+
+  // If not authenticated, show public routes only
+  if (!isAuthenticated) {
     return (
       <Switch>
         <Route path="/" component={CandidateLoginPage} />
@@ -50,6 +56,7 @@ function Router() {
     );
   }
 
+  // Authenticated routes
   return (
     <Switch>
       {isAdmin ? (
@@ -86,6 +93,7 @@ function AppContent() {
     "--sidebar-width-icon": "3rem",
   };
 
+  // Show minimal layout while loading or not authenticated
   if (isLoading || !isAuthenticated) {
     return (
       <>
@@ -95,6 +103,7 @@ function AppContent() {
     );
   }
 
+  // Show full layout with sidebar for authenticated users
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <div className="flex h-screen w-full">

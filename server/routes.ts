@@ -391,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "This exam is not yet available" });
       }
 
-      if (exam.status === "archived") {
+      if (exam.status === "inactive") {
         return res.status(403).json({ message: "This exam has been archived and new attempts cannot be started" });
       }
 
@@ -527,7 +527,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
-      res.json(candidatesWithExams);
+      // Filter out draft exams on the backend for security
+      const filteredCandidates = candidatesWithExams.filter(
+        candidate => candidate.exam?.status !== 'draft'
+      );
+
+      res.json(filteredCandidates);
     } catch (error) {
       console.error("Error fetching my exams:", error);
       res.status(500).json({ message: "Failed to fetch exams" });
@@ -561,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Archived exams: allow viewing completed results, but prevent new attempts
-      if (exam.status === "archived") {
+      if (exam.status === "inactive") {
         if (candidate.status === "assigned" || candidate.status === "in_progress") {
           return res.status(403).json({ message: "This exam has been archived and new attempts cannot be started" });
         }

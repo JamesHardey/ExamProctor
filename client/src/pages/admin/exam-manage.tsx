@@ -76,7 +76,7 @@ export default function ExamManagePage() {
     duration: 0,
     questionCount: 0,
     showResults: "delayed" as "immediate" | "delayed" | "hidden",
-    status: "draft" as "draft" | "active" | "archived",
+    status: "draft" as "draft" | "active" | "inactive",
     enableWebcam: true,
     enableTabDetection: true,
   });
@@ -122,7 +122,7 @@ export default function ExamManagePage() {
         duration: exam.duration,
         questionCount: exam.questionCount,
         showResults: exam.showResults as "immediate" | "delayed" | "hidden",
-        status: exam.status as "draft" | "active" | "archived",
+        status: exam.status as "draft" | "active" | "inactive",
         enableWebcam: exam.enableWebcam ?? true,
         enableTabDetection: exam.enableTabDetection ?? true,
       });
@@ -716,7 +716,7 @@ export default function ExamManagePage() {
                     <SelectContent>
                       <SelectItem value="draft">Draft</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
+                      <SelectItem value="inactive">Archived</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

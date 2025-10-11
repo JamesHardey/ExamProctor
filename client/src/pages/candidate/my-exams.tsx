@@ -29,7 +29,7 @@ export default function MyExamsPage() {
   // Simply navigate to exam page, don't change status yet
   const handleStartExam = (candidateId: number, exam?: Exam) => {
     // Prevent starting archived exams
-    if (exam?.status === "archived") {
+    if (exam?.status === "inactive") {
       toast({
         title: "Exam Archived",
         description: "This exam has been archived and new attempts cannot be started.",
@@ -128,7 +128,7 @@ export default function MyExamsPage() {
 
                   <div className="pt-2">
                     {candidate.status === "assigned" ? (
-                      exam?.status === "archived" ? (
+                      exam?.status === "inactive" ? (
                         <Button 
                           variant="outline" 
                           className="w-full" 
@@ -148,7 +148,7 @@ export default function MyExamsPage() {
                         </Button>
                       )
                     ) : candidate.status === "in_progress" ? (
-                      exam?.status === "archived" ? (
+                      exam?.status === "inactive" ? (
                         <Button 
                           variant="outline" 
                           className="w-full" 
