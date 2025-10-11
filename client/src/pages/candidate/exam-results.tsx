@@ -34,19 +34,26 @@ export default function ExamResults({ candidateId }: { candidateId: number }) {
   }
 
   const exam = candidate.exam;
-  const showResults = exam?.showResults === "immediate";
+  const resultVisibility = exam?.showResults || "delayed";
+  const showResults = resultVisibility === "immediate";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <Card className="max-w-2xl w-full p-8">
         <div className="text-center mb-8">
           <div className={`h-20 w-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
-            candidate.score && candidate.score >= 70 ? "bg-chart-2/10" : "bg-destructive/10"
+            showResults && candidate.score !== null && candidate.score !== undefined && candidate.score >= 70 ? "bg-chart-2/10" : 
+            showResults && candidate.score !== null && candidate.score !== undefined ? "bg-destructive/10" :
+            "bg-muted"
           }`}>
-            {candidate.score && candidate.score >= 70 ? (
-              <CheckCircle className="h-10 w-10 text-chart-2" />
+            {showResults ? (
+              candidate.score !== null && candidate.score !== undefined && candidate.score >= 70 ? (
+                <CheckCircle className="h-10 w-10 text-chart-2" />
+              ) : (
+                <XCircle className="h-10 w-10 text-destructive" />
+              )
             ) : (
-              <XCircle className="h-10 w-10 text-destructive" />
+              <Clock className="h-10 w-10 text-muted-foreground" />
             )}
           </div>
 
@@ -65,9 +72,13 @@ export default function ExamResults({ candidateId }: { candidateId: number }) {
                   : "You did not pass this time. Keep practicing!"}
               </p>
             </>
+          ) : resultVisibility === "delayed" ? (
+            <p className="text-lg text-muted-foreground" data-testid="text-delayed-message">
+              Your exam has been submitted successfully. Results will be published later by your administrator.
+            </p>
           ) : (
-            <p className="text-lg text-muted-foreground" data-testid="text-pending-message">
-              Your exam has been submitted successfully. Results will be published later.
+            <p className="text-lg text-muted-foreground" data-testid="text-hidden-message">
+              Your exam has been submitted successfully. Results are not available for this exam.
             </p>
           )}
         </div>
