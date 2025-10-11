@@ -5,7 +5,7 @@ const SMTP_HOST = process.env.SMTP_HOST || "";
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
 const SMTP_USER = process.env.SMTP_USER || "";
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || "";
-const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "noreply@smartexam.com";
+const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "noreply@wokkahcbt.com";
 
 // Create transporter only if SMTP credentials are provided
 let transporter: nodemailer.Transporter | null = null;
@@ -94,11 +94,11 @@ export async function sendInvitationEmail(
       </head>
       <body>
         <div class="header">
-          <h1>Welcome to SmartExam Proctor</h1>
+          <h1>Welcome to WokkahCBT</h1>
         </div>
         <div class="content">
           <p>Hello,</p>
-          <p>You have been invited to take an exam on SmartExam Proctor${exam ? `: <strong>${exam.title}</strong>` : ""}.</p>
+          <p>You have been invited to take an exam on WokkahCBT${exam ? `: <strong>${exam.title}</strong>` : ""}.</p>
           
           ${exam ? `
           <div class="exam-info">
@@ -121,7 +121,7 @@ export async function sendInvitationEmail(
           
           <div class="footer">
             <p>If you didn't request this invitation, please ignore this email.</p>
-            <p>© ${new Date().getFullYear()} SmartExam Proctor. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} WokkahCBT. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -132,7 +132,7 @@ export async function sendInvitationEmail(
     await transporter.sendMail({
       from: SMTP_FROM_EMAIL,
       to: email,
-      subject: exam ? `Invitation to ${exam.title}` : "Welcome to SmartExam Proctor",
+      subject: exam ? `Invitation to ${exam.title}` : "Welcome to WokkahCBT",
       html: htmlContent,
     });
     return true;
@@ -223,7 +223,7 @@ export async function sendPasswordResetEmail(
         </div>
         <div class="content">
           <p>Hello ${firstName} ${lastName},</p>
-          <p>We received a request to reset your password for your SmartExam Proctor administrator account.</p>
+          <p>We received a request to reset your password for your WokkahCBT administrator account.</p>
           
           <p>Click the button below to reset your password:</p>
           
@@ -240,7 +240,7 @@ export async function sendPasswordResetEmail(
           
           <div class="footer">
             <p>For security reasons, please do not share this link with anyone.</p>
-            <p>© ${new Date().getFullYear()} SmartExam Proctor. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} WokkahCBT. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -252,7 +252,7 @@ export async function sendPasswordResetEmail(
     const result = await transporter.sendMail({
       from: SMTP_FROM_EMAIL,
       to: email,
-      subject: "Password Reset Request - SmartExam Proctor",
+      subject: "Password Reset Request - WokkahCBT",
       html: htmlContent,
     });
     console.log(`[EMAIL] Password reset email sent successfully to ${email}. Message ID: ${result.messageId}`);
@@ -411,7 +411,7 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
     <body>
       <div class="container">
         <div class="header">
-          <h1>SmartExam Proctor - Exam Invitation</h1>
+          <h1>WokkahCBT - Exam Invitation</h1>
         </div>
         
         <div class="content">
@@ -471,13 +471,13 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
           
           <p>
             Best regards,<br>
-            <strong>SmartExam Proctor Team</strong>
+            <strong>WokkahCBT Team</strong>
           </p>
         </div>
 
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
-          <p>© ${new Date().getFullYear()} SmartExam Proctor. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} WokkahCBT. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -485,7 +485,7 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
   `;
 
   const emailText = `
-SmartExam Proctor - Exam Invitation
+WokkahCBT - Exam Invitation
 
 Dear ${data.firstName} ${data.lastName},
 
@@ -520,11 +520,11 @@ Please keep your login credentials secure and do not share them with anyone.
 Good luck with your exam!
 
 Best regards,
-SmartExam Proctor Team
+WokkahCBT Team
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 This is an automated email. Please do not reply to this message.
-© ${new Date().getFullYear()} SmartExam Proctor. All rights reserved.
+© ${new Date().getFullYear()} WokkahCBT. All rights reserved.
   `;
 
   try {

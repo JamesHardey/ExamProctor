@@ -1,9 +1,9 @@
-# SmartExam Proctor Design Guidelines
+# WokkahCBT Design Guidelines
 
 ## Design Approach
 
 **Selected Approach:** Design System - Professional Dashboard Pattern
-**Justification:** SmartExam Proctor is a utility-focused, information-dense application requiring clarity, trust, and efficiency. Drawing inspiration from Linear, Notion, and enterprise dashboards for clean data presentation and professional aesthetics.
+**Justification:** WokkahCBT is a utility-focused, information-dense application requiring clarity, trust, and efficiency. Drawing inspiration from Linear, Notion, and enterprise dashboards for clean data presentation and professional aesthetics.
 
 ## Core Design Principles
 

@@ -1,7 +1,7 @@
-# SmartExam Proctor
+# WokkahCBT
 
 ### Overview
-SmartExam Proctor is an intelligent, secure online examination and proctoring system designed to facilitate the creation, management, and monitoring of online exams with AI-assisted supervision. It aims to ensure academic integrity through features like camera monitoring, tab-switch restrictions, question randomization, and advanced proctoring capabilities. The system supports both administrators, who manage exams and monitor candidates, and candidates, who take proctored exams.
+WokkahCBT is an intelligent, secure online examination and proctoring system designed to facilitate the creation, management, and monitoring of online exams with AI-assisted supervision. It aims to ensure academic integrity through features like camera monitoring, tab-switch restrictions, question randomization, and advanced proctoring capabilities. The system supports both administrators, who manage exams and monitor candidates, and candidates, who take proctored exams.
 
 ### User Preferences
 I prefer the AI agent to be concise and to the point. When suggesting code changes, provide the exact code snippets that can be directly applied. I appreciate it when the agent explains the 'why' behind its suggestions, especially for architectural decisions. Prioritize secure and scalable solutions. Do not make changes to files or folders without explicit confirmation, especially to core authentication or proctoring logic. I prefer detailed explanations for complex features.

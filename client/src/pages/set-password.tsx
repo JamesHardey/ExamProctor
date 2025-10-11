@@ -91,7 +91,7 @@ export default function SetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Welcome to SmartExam Proctor</CardTitle>
+          <CardTitle>Welcome to WokkahCBT</CardTitle>
           <CardDescription>
             Set up your password to access your assigned exams
           </CardDescription>
