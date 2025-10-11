@@ -844,6 +844,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset user password (admin only)
+  app.post("/api/users/reset-password", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId, password } = req.body;
+      
+      if (!userId || !password) {
+        return res.status(400).json({ message: "User ID and password required" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      await storage.updateUser(userId, { passwordHash });
+      
+      res.json({ success: true, message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  // Allow candidate to retake exam (admin only)
+  app.post("/api/candidates/:id/allow-retake", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const candidateId = parseInt(req.params.id);
+      
+      const candidate = await storage.getCandidate(candidateId);
+      if (!candidate) {
+        return res.status(404).json({ message: "Candidate not found" });
+      }
+
+      // Reset candidate status to assigned and clear completion data
+      // Note: Previous responses are kept as historical data
+      await storage.updateCandidate(candidateId, {
+        status: "assigned",
+        startedAt: null,
+        completedAt: null,
+      });
+
+      res.json({ success: true, message: "Candidate can now retake the exam" });
+    } catch (error) {
+      console.error("Error allowing retake:", error);
+      res.status(500).json({ message: "Failed to allow retake" });
+    }
+  });
+
   // Catch-all 404 handler for undefined API routes
   app.all("/api/auth/register-admin", (_req, res) => {
     res.status(404).json({ message: "API endpoint not found" });

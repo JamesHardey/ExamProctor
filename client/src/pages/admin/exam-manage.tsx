@@ -266,6 +266,65 @@ export default function ExamManagePage() {
     },
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userId, candidateId }: { userId: string; candidateId: number }) => {
+      const password = generatePassword();
+      const response = await apiRequest("POST", "/api/users/reset-password", {
+        userId,
+        password,
+      });
+      return { ...response, password, candidateId };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Password Reset Successfully",
+        description: `New Password: ${data.password}`,
+        duration: 15000,
+      });
+      
+      // Add to imported candidates list for download
+      const candidate = examCandidates?.find(c => c.id === data.candidateId);
+      if (candidate) {
+        const resetCandidate = {
+          fullName: `${candidate.user?.firstName} ${candidate.user?.lastName}`,
+          email: candidate.user?.email,
+          department: candidate.user?.department,
+          matricNo: candidate.user?.matricNo,
+          password: data.password,
+        };
+        setImportedCandidates(prev => [...prev, resetCandidate]);
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const allowRetakeMutation = useMutation({
+    mutationFn: async (candidateId: number) => {
+      return await apiRequest("POST", `/api/candidates/${candidateId}/allow-retake`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exams", examId, "candidates"] });
+      refetchCandidates();
+      toast({
+        title: "Retake Allowed",
+        description: "Candidate can now retake the exam",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const addManualCandidateMutation = useMutation({
     mutationFn: async (candidateData: any) => {
       // Check if user already exists
@@ -1123,6 +1182,7 @@ export default function ExamManagePage() {
                       <th className="px-4 py-2 text-left text-sm font-medium">Department</th>
                       <th className="px-4 py-2 text-left text-sm font-medium">Matric No</th>
                       <th className="px-4 py-2 text-left text-sm font-medium">Status</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1141,6 +1201,33 @@ export default function ExamManagePage() {
                           }>
                             {candidate.status}
                           </Badge>
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => resetPasswordMutation.mutate({ 
+                                userId: candidate.user?.id, 
+                                candidateId: candidate.id 
+                              })}
+                              disabled={resetPasswordMutation.isPending}
+                              data-testid={`button-reset-password-${idx}`}
+                            >
+                              Reset Password
+                            </Button>
+                            {candidate.status === "completed" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => allowRetakeMutation.mutate(candidate.id)}
+                                disabled={allowRetakeMutation.isPending}
+                                data-testid={`button-allow-retake-${idx}`}
+                              >
+                                Allow Retake
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
