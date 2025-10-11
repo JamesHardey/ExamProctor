@@ -281,7 +281,7 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
     <body>
       <div class="container">
         <div class="header">
-          <h1>🎓 SmartExam Proctor - Exam Invitation</h1>
+          <h1>SmartExam Proctor - Exam Invitation</h1>
         </div>
         
         <div class="content">
@@ -290,7 +290,7 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
           <p>You have been assigned to take the following exam:</p>
           
           <div class="credentials-box">
-            <h3>📋 Exam Details</h3>
+            <h3>Exam Details</h3>
             <div class="credential-item">
               <span class="credential-label">Exam Title:</span>
               <span class="credential-value">${data.examTitle}</span>
@@ -300,7 +300,7 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
               <span class="credential-value">${data.examDuration} minutes</span>
             </div>
             
-            <h3 style="margin-top: 25px;">🔑 Your Login Credentials</h3>
+            <h3 style="margin-top: 25px;">Your Login Credentials</h3>
             <div class="credential-item">
               <span class="credential-label">Email:</span>
               <span class="credential-value">${data.email}</span>
@@ -312,7 +312,7 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
           </div>
 
           <div class="rules-box">
-            <h3>⚠️ Assessment Instructions - PLEASE READ CAREFULLY</h3>
+            <h3>Assessment Instructions - PLEASE READ CAREFULLY</h3>
             <ol>
               <li>You must stay in the assessment browser window at all times</li>
               <li>Your webcam must stay on and your face visible throughout</li>
@@ -324,7 +324,7 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
           </div>
 
           <div class="warning">
-            ⚠️ <strong>WARNING:</strong> If any of the above rules are violated, the system will automatically log you out and you will not be able to continue the assessment.
+            <strong>WARNING:</strong> If any of this is detected by the system it will log participant out and wont be able to continue the assessment.
           </div>
 
           <p style="text-align: center;">
@@ -383,7 +383,7 @@ ASSESSMENT INSTRUCTIONS - PLEASE READ CAREFULLY
 5. Maintain a quiet environment during the assessment
 6. Do not use any external resources or assistance
 
-⚠️ WARNING: If any of the above rules are violated, the system will automatically log you out and you will not be able to continue the assessment.
+WARNING: If any of this is detected by the system it will log participant out and wont be able to continue the assessment.
 
 Please keep your login credentials secure and do not share them with anyone.
 
