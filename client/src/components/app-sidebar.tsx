@@ -19,7 +19,8 @@ import {
   LogOut,
   User,
   BarChart3,
-  FolderOpen
+  FolderOpen,
+  UserCog
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -46,6 +47,12 @@ const adminItems = [
     url: "/domains",
     icon: FolderOpen,
     testId: "link-domains"
+  },
+  {
+    title: "Administrators",
+    url: "/administrators",
+    icon: UserCog,
+    testId: "link-administrators"
   },
   {
     title: "Live Monitoring",
