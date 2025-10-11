@@ -43,10 +43,14 @@ export default function ExamSessionPage({
   const [audioLevel, setAudioLevel] = useState(0);
   const [isMicActive, setIsMicActive] = useState(false);
   const [faceDetectionStatus, setFaceDetectionStatus] = useState<"detecting" | "face_detected" | "no_face" | "multiple_faces">("detecting");
+  const [noiseWarningCount, setNoiseWarningCount] = useState(0);
+  const [faceWarningCount, setFaceWarningCount] = useState(0);
+  const [tabSwitchTimer, setTabSwitchTimer] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const faceModelRef = useRef<blazeface.BlazeFaceModel | null>(null);
+  const tabSwitchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   const { data: sessionData, isLoading } = useQuery<ExamSessionData>({
@@ -131,10 +135,25 @@ export default function ExamSessionPage({
             if (!highNoiseStartTime) highNoiseStartTime = now;
             if (now - highNoiseStartTime > 3000) {
               logProctorEvent("background_noise", "medium");
-              toast({
-                title: "Background Noise Detected",
-                description: "High audio levels detected. Please minimize background noise.",
-                variant: "destructive",
+              setNoiseWarningCount(prev => {
+                const newCount = prev + 1;
+                if (newCount >= 3) {
+                  toast({
+                    title: "Exam Terminated",
+                    description: "You have been logged out due to excessive background noise violations.",
+                    variant: "destructive",
+                  });
+                  setTimeout(() => {
+                    submitMutation.mutate();
+                  }, 2000);
+                } else {
+                  toast({
+                    title: `Background Noise Warning (${newCount}/3)`,
+                    description: "High audio levels detected. Please minimize background noise or you will be logged out.",
+                    variant: "destructive",
+                  });
+                }
+                return newCount;
               });
               highNoiseStartTime = now;
             }
@@ -195,10 +214,25 @@ export default function ExamSessionPage({
             // Log if no face detected for more than 10 seconds
             if (now - noFaceStartTime > 10000) {
               logProctorEvent("face_absent", "high");
-              toast({
-                title: "Face Not Detected",
-                description: "Please ensure your face is visible to the camera.",
-                variant: "destructive",
+              setFaceWarningCount(prev => {
+                const newCount = prev + 1;
+                if (newCount >= 3) {
+                  toast({
+                    title: "Exam Terminated",
+                    description: "You have been logged out due to repeated failure to maintain camera focus.",
+                    variant: "destructive",
+                  });
+                  setTimeout(() => {
+                    submitMutation.mutate();
+                  }, 2000);
+                } else {
+                  toast({
+                    title: `Camera Focus Warning (${newCount}/3)`,
+                    description: "Please ensure your face is visible to the camera or you will be logged out.",
+                    variant: "destructive",
+                  });
+                }
+                return newCount;
               });
               noFaceStartTime = now; // Reset to avoid spam
             }
@@ -279,22 +313,74 @@ export default function ExamSessionPage({
     };
   }, []);
 
-  // Tab switch detection
+  // Tab switch detection with 10-second countdown
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        logProctorEvent("tab_switch", "medium");
+        logProctorEvent("tab_switch", "high");
+        
+        // Start 10-second countdown
+        setTabSwitchTimer(10);
+        
         toast({
-          title: "Warning",
-          description: "Tab switching detected. This has been logged.",
+          title: "Warning: Return to Exam",
+          description: "You will be automatically logged out in 10 seconds if you don't return to this tab.",
           variant: "destructive",
         });
+
+        // Clear any existing timeout
+        if (tabSwitchTimeoutRef.current) {
+          clearTimeout(tabSwitchTimeoutRef.current);
+        }
+
+        // Set 10-second auto-logout
+        tabSwitchTimeoutRef.current = setTimeout(() => {
+          toast({
+            title: "Exam Terminated",
+            description: "You have been logged out due to leaving the exam tab.",
+            variant: "destructive",
+          });
+          setTimeout(() => {
+            submitMutation.mutate();
+          }, 2000);
+        }, 10000);
+      } else {
+        // Tab is visible again - cancel logout
+        if (tabSwitchTimeoutRef.current) {
+          clearTimeout(tabSwitchTimeoutRef.current);
+          tabSwitchTimeoutRef.current = null;
+          setTabSwitchTimer(null);
+          toast({
+            title: "Welcome Back",
+            description: "Logout cancelled. Please stay focused on the exam.",
+          });
+        }
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (tabSwitchTimeoutRef.current) {
+        clearTimeout(tabSwitchTimeoutRef.current);
+      }
+    };
   }, []);
+
+  // Update tab switch countdown timer
+  useEffect(() => {
+    if (tabSwitchTimer === null || tabSwitchTimer <= 0) return;
+
+    const interval = setInterval(() => {
+      setTabSwitchTimer(prev => {
+        if (prev === null) return prev;
+        if (prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [tabSwitchTimer]);
 
   const logProctorEvent = async (eventType: string, severity: string) => {
     try {
@@ -392,56 +478,78 @@ export default function ExamSessionPage({
     <div className="min-h-screen bg-background">
       {/* Fixed Header */}
       <div className="sticky top-0 z-50 border-b bg-background">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="font-semibold" data-testid="text-exam-title">{sessionData.examTitle}</h1>
-            <Badge variant="outline" data-testid="text-question-number">
-              Question {currentQuestionIndex + 1} of {sessionData.randomizedQuestions.length}
-            </Badge>
-          </div>
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+              <h1 className="font-semibold text-sm sm:text-base" data-testid="text-exam-title">{sessionData.examTitle}</h1>
+              <Badge variant="outline" data-testid="text-question-number">
+                Q {currentQuestionIndex + 1}/{sessionData.randomizedQuestions.length}
+              </Badge>
+            </div>
 
-          <div className="flex items-center gap-4">
-            {isCameraActive && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Warning Indicators */}
+              {noiseWarningCount > 0 && (
+                <Badge variant="outline" className="bg-destructive/10 text-destructive">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Noise: {noiseWarningCount}/3
+                </Badge>
+              )}
+              {faceWarningCount > 0 && (
+                <Badge variant="outline" className="bg-destructive/10 text-destructive">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Focus: {faceWarningCount}/3
+                </Badge>
+              )}
+              {tabSwitchTimer !== null && (
+                <Badge variant="outline" className="bg-destructive/10 text-destructive animate-pulse">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Logout in: {tabSwitchTimer}s
+                </Badge>
+              )}
+              
+              {isCameraActive && (
+                <Badge 
+                  variant="outline" 
+                  className={
+                    faceDetectionStatus === "face_detected" ? "bg-chart-2/10 text-chart-2" :
+                    faceDetectionStatus === "multiple_faces" ? "bg-destructive/10 text-destructive" :
+                    faceDetectionStatus === "no_face" ? "bg-chart-4/10 text-chart-4" :
+                    "bg-muted text-muted-foreground"
+                  }
+                >
+                  <Camera className="h-3 w-3 mr-1" />
+                  {faceDetectionStatus === "face_detected" ? "Face OK" :
+                   faceDetectionStatus === "multiple_faces" ? "Multiple Faces" :
+                   faceDetectionStatus === "no_face" ? "No Face" :
+                   "Detecting..."}
+                </Badge>
+              )}
+              {isMicActive && (
+                <Badge variant="outline" className="bg-chart-3/10 text-chart-3">
+                  <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4z"/>
+                    <path d="M5.5 9.643a.75.75 0 00-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-1.5v-1.546A6.001 6.001 0 0016 10v-.357a.75.75 0 00-1.5 0V10a4.5 4.5 0 01-9 0v-.357z"/>
+                  </svg>
+                  Audio: {audioLevel}%
+                </Badge>
+              )}
               <Badge 
                 variant="outline" 
-                className={
-                  faceDetectionStatus === "face_detected" ? "bg-chart-2/10 text-chart-2" :
-                  faceDetectionStatus === "multiple_faces" ? "bg-destructive/10 text-destructive" :
-                  faceDetectionStatus === "no_face" ? "bg-chart-4/10 text-chart-4" :
-                  "bg-muted text-muted-foreground"
-                }
+                className={timeRemaining < 300 ? "bg-destructive/10 text-destructive" : "bg-chart-3/10 text-chart-3"}
+                data-testid="text-timer"
               >
-                <Camera className="h-3 w-3 mr-1" />
-                {faceDetectionStatus === "face_detected" ? "Face OK" :
-                 faceDetectionStatus === "multiple_faces" ? "Multiple Faces" :
-                 faceDetectionStatus === "no_face" ? "No Face" :
-                 "Detecting..."}
+                <Clock className="h-3 w-3 mr-1" />
+                {formatTime(timeRemaining)}
               </Badge>
-            )}
-            {isMicActive && (
-              <Badge variant="outline" className="bg-chart-3/10 text-chart-3">
-                <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4z"/>
-                  <path d="M5.5 9.643a.75.75 0 00-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-1.5v-1.546A6.001 6.001 0 0016 10v-.357a.75.75 0 00-1.5 0V10a4.5 4.5 0 01-9 0v-.357z"/>
-                </svg>
-                Audio: {audioLevel}%
-              </Badge>
-            )}
-            <Badge 
-              variant="outline" 
-              className={timeRemaining < 300 ? "bg-destructive/10 text-destructive" : "bg-chart-3/10 text-chart-3"}
-              data-testid="text-timer"
-            >
-              <Clock className="h-3 w-3 mr-1" />
-              {formatTime(timeRemaining)}
-            </Badge>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <Card className="p-8">
+      <div className="max-w-4xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <Card className="p-4 sm:p-8">
           <div className="space-y-6">
             <div className="flex items-start justify-between gap-4">
               <h2 className="text-xl font-medium flex-1" data-testid="text-question-content">
@@ -487,53 +595,59 @@ export default function ExamSessionPage({
         </Card>
 
         {/* Navigation */}
-        <div className="flex items-center justify-between gap-4 mt-6">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentQuestionIndex === 0}
-            data-testid="button-previous"
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Previous
-          </Button>
-
-          <div className="flex gap-2">
-            {sessionData.randomizedQuestions.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentQuestionIndex(index)}
-                className={`h-8 w-8 rounded-md text-sm font-medium transition-colors ${
-                  index === currentQuestionIndex
-                    ? "bg-primary text-primary-foreground"
-                    : flaggedQuestions.has(index)
-                    ? "bg-chart-4/20 text-chart-4 border border-chart-4"
-                    : "bg-muted hover-elevate"
-                }`}
-                data-testid={`nav-question-${index}`}
-              >
-                {index + 1}
-              </button>
-            ))}
+        <div className="space-y-4 mt-6">
+          {/* Question Number Grid - Responsive */}
+          <div className="overflow-x-auto">
+            <div className="flex flex-wrap gap-2 justify-center min-w-0 p-2">
+              {sessionData.randomizedQuestions.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentQuestionIndex(index)}
+                  className={`h-8 w-8 flex-shrink-0 rounded-md text-sm font-medium transition-colors ${
+                    index === currentQuestionIndex
+                      ? "bg-primary text-primary-foreground"
+                      : flaggedQuestions.has(index)
+                      ? "bg-chart-4/20 text-chart-4 border border-chart-4"
+                      : "bg-muted hover-elevate"
+                  }`}
+                  data-testid={`nav-question-${index}`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {currentQuestionIndex === sessionData.randomizedQuestions.length - 1 ? (
+          {/* Previous/Next Buttons */}
+          <div className="flex items-center justify-between gap-4">
             <Button
-              onClick={() => submitMutation.mutate()}
-              disabled={submitMutation.isPending}
-              data-testid="button-submit"
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentQuestionIndex === 0}
+              data-testid="button-previous"
             >
-              {submitMutation.isPending ? "Submitting..." : "Submit Exam"}
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Previous
             </Button>
-          ) : (
-            <Button
-              onClick={handleNext}
-              data-testid="button-next"
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          )}
+
+            {currentQuestionIndex === sessionData.randomizedQuestions.length - 1 ? (
+              <Button
+                onClick={() => submitMutation.mutate()}
+                disabled={submitMutation.isPending}
+                data-testid="button-submit"
+              >
+                {submitMutation.isPending ? "Submitting..." : "Submit Exam"}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleNext}
+                data-testid="button-next"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Camera Preview (small, bottom corner) */}
