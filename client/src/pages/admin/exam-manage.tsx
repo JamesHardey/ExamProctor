@@ -60,6 +60,13 @@ export default function ExamManagePage() {
   const [importedCandidates, setImportedCandidates] = useState<any[]>([]);
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [deletingQuestionId, setDeletingQuestionId] = useState<number | null>(null);
+  const [manualCandidateForm, setManualCandidateForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    department: "",
+    matricNo: "",
+  });
   
   // Form state for settings
   const [formData, setFormData] = useState({
@@ -85,6 +92,11 @@ export default function ExamManagePage() {
 
   const { data: examQuestions, refetch: refetchQuestions } = useQuery<any[]>({
     queryKey: ["/api/exams", examId, "questions"],
+    enabled: !!examId,
+  });
+
+  const { data: examCandidates, refetch: refetchCandidates } = useQuery<any[]>({
+    queryKey: ["/api/exams", examId, "candidates"],
     enabled: !!examId,
   });
 
@@ -231,6 +243,47 @@ export default function ExamManagePage() {
       toast({
         title: "Success",
         description: "Question deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addManualCandidateMutation = useMutation({
+    mutationFn: async (candidateData: any) => {
+      // Use bulk import endpoint with single candidate
+      const response = await apiRequest("POST", "/api/candidates/bulk-import", {
+        candidates: [{
+          email: candidateData.email,
+          firstName: candidateData.firstName,
+          lastName: candidateData.lastName,
+          department: candidateData.department,
+          matricNo: candidateData.matricNo,
+          examId: examId,
+          password: Math.random().toString(36).slice(-8), // Generate random password
+        }]
+      });
+
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exams", examId, "candidates"] });
+      refetchCandidates();
+      setManualCandidateForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        department: "",
+        matricNo: "",
+      });
+      toast({
+        title: "Success",
+        description: "Candidate added successfully",
       });
     },
     onError: (error: Error) => {
@@ -859,8 +912,91 @@ export default function ExamManagePage() {
         </TabsContent>
 
         <TabsContent value="candidates" className="space-y-4">
+          {/* Manual Candidate Addition */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Import Candidates</h3>
+            <h3 className="text-lg font-semibold mb-4">Add Candidate Manually</h3>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addManualCandidateMutation.mutate(manualCandidateForm);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    value={manualCandidateForm.firstName}
+                    onChange={(e) => setManualCandidateForm({ ...manualCandidateForm, firstName: e.target.value })}
+                    placeholder="John"
+                    required
+                    data-testid="input-candidate-firstname"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    value={manualCandidateForm.lastName}
+                    onChange={(e) => setManualCandidateForm({ ...manualCandidateForm, lastName: e.target.value })}
+                    placeholder="Doe"
+                    required
+                    data-testid="input-candidate-lastname"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={manualCandidateForm.email}
+                  onChange={(e) => setManualCandidateForm({ ...manualCandidateForm, email: e.target.value })}
+                  placeholder="john.doe@example.com"
+                  required
+                  data-testid="input-candidate-email"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="department">Department</Label>
+                  <Input
+                    id="department"
+                    value={manualCandidateForm.department}
+                    onChange={(e) => setManualCandidateForm({ ...manualCandidateForm, department: e.target.value })}
+                    placeholder="Computer Science"
+                    data-testid="input-candidate-department"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="matricNo">Matric No</Label>
+                  <Input
+                    id="matricNo"
+                    value={manualCandidateForm.matricNo}
+                    onChange={(e) => setManualCandidateForm({ ...manualCandidateForm, matricNo: e.target.value })}
+                    placeholder="CS/2024/001"
+                    data-testid="input-candidate-matricno"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={addManualCandidateMutation.isPending}
+                data-testid="button-add-candidate"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {addManualCandidateMutation.isPending ? "Adding..." : "Add Candidate"}
+              </Button>
+            </form>
+          </Card>
+
+          {/* Bulk Import */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Import Candidates (Bulk)</h3>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="csv-upload">Upload CSV or Excel File</Label>
@@ -936,6 +1072,50 @@ export default function ExamManagePage() {
                 </div>
               )}
             </div>
+          </Card>
+
+          {/* Existing Candidates for this Exam */}
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">
+              Enrolled Candidates ({examCandidates?.length || 0})
+            </h3>
+            {examCandidates && examCandidates.length > 0 ? (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Name</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Email</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Department</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Matric No</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {examCandidates.map((candidate: any, idx: number) => (
+                      <tr key={candidate.id} className="border-t" data-testid={`enrolled-candidate-${idx}`}>
+                        <td className="px-4 py-2 text-sm">
+                          {candidate.user?.firstName} {candidate.user?.lastName}
+                        </td>
+                        <td className="px-4 py-2 text-sm">{candidate.user?.email}</td>
+                        <td className="px-4 py-2 text-sm">{candidate.user?.department || "-"}</td>
+                        <td className="px-4 py-2 text-sm">{candidate.user?.matricNo || "-"}</td>
+                        <td className="px-4 py-2 text-sm">
+                          <Badge variant={
+                            candidate.status === "completed" ? "default" :
+                            candidate.status === "in_progress" ? "secondary" : "outline"
+                          }>
+                            {candidate.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No candidates enrolled yet</p>
+            )}
           </Card>
         </TabsContent>
 

@@ -311,6 +311,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/exams/:id/candidates", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const examId = parseInt(req.params.id);
+      const candidates = await storage.getCandidatesByExam(examId);
+      
+      // Fetch related user data
+      const candidatesWithDetails = await Promise.all(
+        candidates.map(async (candidate) => {
+          const user = await storage.getUser(candidate.userId);
+          return { ...candidate, user };
+        })
+      );
+
+      res.json(candidatesWithDetails);
+    } catch (error) {
+      console.error("Error fetching exam candidates:", error);
+      res.status(500).json({ message: "Failed to fetch exam candidates" });
+    }
+  });
+
   app.post("/api/candidates", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { userId, examId } = req.body;
