@@ -100,6 +100,16 @@ export default function ExamManagePage() {
     enabled: !!examId,
   });
 
+  // Generate secure password for candidates
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
   // Initialize form data when exam loads
   useEffect(() => {
     if (exam) {
@@ -256,6 +266,9 @@ export default function ExamManagePage() {
 
   const addManualCandidateMutation = useMutation({
     mutationFn: async (candidateData: any) => {
+      // Generate secure password
+      const password = generatePassword();
+      
       // Use bulk import endpoint with single candidate
       const response = await apiRequest("POST", "/api/candidates/bulk-import", {
         candidates: [{
@@ -265,15 +278,26 @@ export default function ExamManagePage() {
           department: candidateData.department,
           matricNo: candidateData.matricNo,
           examId: examId,
-          password: Math.random().toString(36).slice(-8), // Generate random password
+          password: password,
         }]
       });
 
-      return response;
+      return { response, password, candidateData };
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/exams", examId, "candidates"] });
       refetchCandidates();
+      
+      // Add to imported candidates for credential download
+      const newCandidate = {
+        fullName: `${data.candidateData.firstName} ${data.candidateData.lastName}`,
+        email: data.candidateData.email,
+        department: data.candidateData.department,
+        matricNo: data.candidateData.matricNo,
+        password: data.password,
+      };
+      setImportedCandidates(prev => [...prev, newCandidate]);
+      
       setManualCandidateForm({
         firstName: "",
         lastName: "",
@@ -282,8 +306,9 @@ export default function ExamManagePage() {
         matricNo: "",
       });
       toast({
-        title: "Success",
-        description: "Candidate added successfully",
+        title: "Candidate Added Successfully",
+        description: `Email: ${data.candidateData.email} | Password: ${data.password}`,
+        duration: 10000,
       });
     },
     onError: (error: Error) => {
@@ -355,15 +380,6 @@ export default function ExamManagePage() {
     }));
 
     addQuestionsMutation.mutate({ examId: exam.id, questions: questionsData });
-  };
-
-  const generatePassword = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
