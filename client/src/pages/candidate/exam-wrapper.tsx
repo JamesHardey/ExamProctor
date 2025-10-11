@@ -15,17 +15,17 @@ export default function ExamWrapper() {
   const candidateId = params?.candidateId ? parseInt(params.candidateId) : 0;
   const { toast } = useToast();
   
-  const { data: candidate } = useQuery<Candidate>({
+  const { data: candidate, isLoading: isCandidateLoading, error: candidateError } = useQuery<Candidate>({
     queryKey: ["/api/candidates", candidateId],
     enabled: !!candidateId,
   });
 
   // Determine initial stage based on candidate status
-  const [stage, setStage] = useState<ExamStage>("pre-check");
+  const [stage, setStage] = useState<ExamStage | null>(null);
 
   useEffect(() => {
     if (candidate) {
-      if (candidate.status === "completed") {
+      if (candidate.status === "completed" || candidate.status === "auto_submitted") {
         setStage("results");
       } else if (candidate.status === "in_progress") {
         setStage("session");
@@ -72,6 +72,33 @@ export default function ExamWrapper() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Invalid exam session</p>
+      </div>
+    );
+  }
+
+  // Show error state if candidate query fails
+  if (candidateError) {
+    const errorMessage = candidateError instanceof Error ? candidateError.message : "Failed to load exam";
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-md w-full text-center space-y-4">
+          <h1 className="text-2xl font-semibold" data-testid="text-candidate-error-title">Unable to Load Exam</h1>
+          <p className="text-muted-foreground" data-testid="text-candidate-error-message">
+            {errorMessage}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while determining candidate status
+  if (isCandidateLoading || stage === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading exam...</p>
+        </div>
       </div>
     );
   }
