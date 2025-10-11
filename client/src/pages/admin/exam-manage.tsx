@@ -17,9 +17,26 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles } from "lucide-react";
+import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles, Pencil, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { Exam, Domain } from "@shared/schema";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -41,6 +58,8 @@ export default function ExamManagePage() {
   const [aiQuestionCount, setAiQuestionCount] = useState(5);
   const [importResults, setImportResults] = useState<any>(null);
   const [importedCandidates, setImportedCandidates] = useState<any[]>([]);
+  const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<number | null>(null);
   
   // Form state for settings
   const [formData, setFormData] = useState({
@@ -174,6 +193,50 @@ export default function ExamManagePage() {
       toast({
         title: "Error",
         description: error.message || "Failed to generate AI questions",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateQuestionMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return await apiRequest("PUT", `/api/questions/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exams", examId, "questions"] });
+      refetchQuestions();
+      setEditingQuestion(null);
+      toast({
+        title: "Success",
+        description: "Question updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteQuestionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/questions/${id}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exams", examId, "questions"] });
+      refetchQuestions();
+      setDeletingQuestionId(null);
+      toast({
+        title: "Success",
+        description: "Question deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -628,9 +691,31 @@ export default function ExamManagePage() {
                 {examQuestions.map((q, index) => (
                   <Card key={q.id} className="p-4" data-testid={`existing-question-${index}`}>
                     <div className="space-y-3">
-                      <div className="flex items-start gap-2">
-                        <Badge variant="outline" className="mt-1">{q.type === "multiple_choice" ? "Multiple Choice" : "True/False"}</Badge>
-                        <p className="font-medium flex-1">{q.content}</p>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-2 flex-1">
+                          <Badge variant="outline" className="mt-1">{q.type === "multiple_choice" ? "Multiple Choice" : "True/False"}</Badge>
+                          <p className="font-medium flex-1">{q.content}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setEditingQuestion(q)}
+                            disabled={updateQuestionMutation.isPending || deleteQuestionMutation.isPending}
+                            data-testid={`button-edit-question-${index}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setDeletingQuestionId(q.id)}
+                            disabled={updateQuestionMutation.isPending || deleteQuestionMutation.isPending}
+                            data-testid={`button-delete-question-${index}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                       
                       <div className="border-t pt-3">
@@ -863,6 +948,145 @@ export default function ExamManagePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Question Dialog */}
+      <Dialog open={!!editingQuestion} onOpenChange={(open) => !open && setEditingQuestion(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Question</DialogTitle>
+            <DialogDescription>
+              Update the question details below
+            </DialogDescription>
+          </DialogHeader>
+          {editingQuestion && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Question Type</Label>
+                <Select
+                  value={editingQuestion.type}
+                  onValueChange={(value) => setEditingQuestion({ ...editingQuestion, type: value })}
+                >
+                  <SelectTrigger data-testid="select-edit-question-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                    <SelectItem value="true_false">True/False</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Question Content</Label>
+                <Textarea
+                  value={editingQuestion.content}
+                  onChange={(e) => setEditingQuestion({ ...editingQuestion, content: e.target.value })}
+                  placeholder="Enter question text"
+                  data-testid="input-edit-question-content"
+                />
+              </div>
+
+              {editingQuestion.type === "multiple_choice" && (
+                <div className="space-y-2">
+                  <Label>Options</Label>
+                  {(editingQuestion.options as string[]).map((option, idx) => (
+                    <Input
+                      key={idx}
+                      value={option}
+                      onChange={(e) => {
+                        const newOptions = [...(editingQuestion.options as string[])];
+                        newOptions[idx] = e.target.value;
+                        setEditingQuestion({ ...editingQuestion, options: newOptions });
+                      }}
+                      placeholder={`Option ${String.fromCharCode(65 + idx)}`}
+                      data-testid={`input-edit-option-${idx}`}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Correct Answer</Label>
+                <Select
+                  value={editingQuestion.correctAnswer}
+                  onValueChange={(value) => setEditingQuestion({ ...editingQuestion, correctAnswer: value })}
+                >
+                  <SelectTrigger data-testid="select-edit-correct-answer">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editingQuestion.type === "true_false" ? (
+                      <>
+                        <SelectItem value="True">True</SelectItem>
+                        <SelectItem value="False">False</SelectItem>
+                      </>
+                    ) : (
+                      (editingQuestion.options as string[])
+                        .filter(opt => opt.trim() !== "")
+                        .map((opt, idx) => (
+                          <SelectItem key={idx} value={opt}>{opt}</SelectItem>
+                        ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditingQuestion(null)}
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    updateQuestionMutation.mutate({
+                      id: editingQuestion.id,
+                      data: {
+                        type: editingQuestion.type,
+                        content: editingQuestion.content,
+                        options: editingQuestion.options,
+                        correctAnswer: editingQuestion.correctAnswer,
+                        domainId: editingQuestion.domainId,
+                      },
+                    });
+                  }}
+                  disabled={updateQuestionMutation.isPending}
+                  data-testid="button-save-edit"
+                >
+                  {updateQuestionMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Question Confirmation */}
+      <AlertDialog open={!!deletingQuestionId} onOpenChange={(open) => !open && setDeletingQuestionId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Question</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this question? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingQuestionId) {
+                  deleteQuestionMutation.mutate(deletingQuestionId);
+                }
+              }}
+              data-testid="button-confirm-delete"
+            >
+              {deleteQuestionMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
