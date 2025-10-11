@@ -8,52 +8,48 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Shield } from "lucide-react";
+import { Shield, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 
-const adminLoginSchema = z.object({
+const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-type AdminLoginForm = z.infer<typeof adminLoginSchema>;
+type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>;
 
-export default function AdminLoginPage() {
+export default function ForgotPasswordPage() {
   const { toast } = useToast();
 
-  const form = useForm<AdminLoginForm>({
-    resolver: zodResolver(adminLoginSchema),
+  const form = useForm<ForgotPasswordForm>({
+    resolver: zodResolver(forgotPasswordSchema),
     defaultValues: {
       email: "",
-      password: "",
     },
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: AdminLoginForm) => {
-      const response = await apiRequest("POST", "/api/auth/login", { ...data, requiredRole: "admin" });
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (data: ForgotPasswordForm) => {
+      const response = await apiRequest("POST", "/api/auth/forgot-password", data);
       return response;
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Logged in successfully",
+        description: "If an account exists, a password reset link has been sent to your email",
       });
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 100);
+      form.reset();
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Login failed",
+        description: error.message || "Failed to process request",
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: AdminLoginForm) => {
-    loginMutation.mutate(data);
+  const onSubmit = (data: ForgotPasswordForm) => {
+    forgotPasswordMutation.mutate(data);
   };
 
   return (
@@ -62,13 +58,13 @@ export default function AdminLoginPage() {
         <CardHeader className="space-y-1">
           <div className="flex items-center gap-2 mb-2">
             <Shield className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Admin Login</CardTitle>
+            <CardTitle className="text-2xl">Forgot Password</CardTitle>
           </div>
           <CardDescription>
-            Enter your admin credentials to access the dashboard
+            Enter your email address and we'll send you a password reset link
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -82,25 +78,7 @@ export default function AdminLoginPage() {
                         type="email"
                         placeholder="admin@example.com"
                         {...field}
-                        data-testid="input-admin-email"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        {...field}
-                        data-testid="input-admin-password"
+                        data-testid="input-forgot-password-email"
                       />
                     </FormControl>
                     <FormMessage />
@@ -110,17 +88,18 @@ export default function AdminLoginPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loginMutation.isPending}
-                data-testid="button-admin-submit"
+                disabled={forgotPasswordMutation.isPending}
+                data-testid="button-send-reset-link"
               >
-                {loginMutation.isPending ? "Signing in..." : "Sign In"}
+                {forgotPasswordMutation.isPending ? "Sending..." : "Send Reset Link"}
               </Button>
             </form>
           </Form>
           
-          <div className="text-center mt-4">
-            <Link href="/admin/forgot-password" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-forgot-password">
-              Forgot your password?
+          <div className="text-center">
+            <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back-to-login">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Login
             </Link>
           </div>
         </CardContent>

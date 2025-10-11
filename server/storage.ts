@@ -40,7 +40,6 @@ export interface IStorage {
   updateUser(id: string, data: Partial<UpsertUser>): Promise<User>;
   updateUserRole(id: string, role: "admin" | "candidate"): Promise<User>;
   deleteUser(id: string): Promise<boolean>;
-  getUserByResetToken(token: string): Promise<User | undefined>;
   setResetPasswordToken(id: string, token: string, expiry: Date): Promise<User>;
   clearResetPasswordToken(id: string): Promise<User>;
 
@@ -191,11 +190,6 @@ export class DatabaseStorage implements IStorage {
   async deleteUser(id: string): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id)).returning();
     return result.length > 0;
-  }
-
-  async getUserByResetToken(token: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.resetPasswordToken, token));
-    return user;
   }
 
   async setResetPasswordToken(id: string, token: string, expiry: Date): Promise<User> {

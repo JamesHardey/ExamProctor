@@ -41,14 +41,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "If an account exists, a password reset link has been sent to your email" });
       }
 
-      // Generate reset token
+      // Generate reset token (plaintext for email)
       const resetToken = randomBytes(32).toString("hex");
       const expiry = new Date(Date.now() + 3600000); // 1 hour from now
 
-      // Save token to database
-      await storage.setResetPasswordToken(user.id, resetToken, expiry);
+      // Hash token before storing in database
+      const hashedToken = await bcrypt.hash(resetToken, SALT_ROUNDS);
 
-      // Send email
+      // Save hashed token to database
+      await storage.setResetPasswordToken(user.id, hashedToken, expiry);
+
+      // Send email with plaintext token
       const emailSent = await sendPasswordResetEmail(
         user.email,
         user.firstName || "Admin",
@@ -56,7 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         resetToken
       );
 
-      if (!emailSent) {
+      if (!emailSent && process.env.NODE_ENV === "development") {
         console.log("Email sending failed, but token saved. Reset link:", resetToken);
       }
 
@@ -79,15 +82,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Password must be at least 8 characters" });
       }
 
-      // Find user by reset token
-      const user = await storage.getUserByResetToken(token);
+      // Get all admin users with reset tokens
+      const admins = await storage.getAdministrators();
+      
+      // Find user by comparing hashed tokens
+      let matchedUser = null;
+      for (const admin of admins) {
+        if (admin.resetPasswordToken && admin.resetPasswordExpiry) {
+          // Check if token matches
+          const isMatch = await bcrypt.compare(token, admin.resetPasswordToken);
+          if (isMatch) {
+            matchedUser = admin;
+            break;
+          }
+        }
+      }
 
-      if (!user || !user.resetPasswordExpiry) {
+      if (!matchedUser || !matchedUser.resetPasswordExpiry) {
         return res.status(400).json({ message: "Invalid or expired reset token" });
       }
 
       // Check if token is expired
-      if (new Date() > new Date(user.resetPasswordExpiry)) {
+      if (new Date() > new Date(matchedUser.resetPasswordExpiry)) {
         return res.status(400).json({ message: "Reset token has expired" });
       }
 
@@ -95,10 +111,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
       // Update password
-      await storage.updateUser(user.id, { passwordHash });
+      await storage.updateUser(matchedUser.id, { passwordHash });
 
       // Clear reset token
-      await storage.clearResetPasswordToken(user.id);
+      await storage.clearResetPasswordToken(matchedUser.id);
 
       res.json({ message: "Password reset successful" });
     } catch (error: any) {

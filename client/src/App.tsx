@@ -12,6 +12,8 @@ import NotFound from "@/pages/not-found";
 import AdminLoginPage from "@/pages/admin-login";
 import CandidateLoginPage from "@/pages/candidate-login";
 import SetPasswordPage from "@/pages/set-password";
+import ForgotPasswordPage from "@/pages/admin/forgot-password";
+import ResetPasswordPage from "@/pages/admin/reset-password";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -51,6 +53,8 @@ function Router() {
       <Switch>
         <Route path="/" component={CandidateLoginPage} />
         <Route path="/admin" component={AdminLoginPage} />
+        <Route path="/admin/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/admin/reset-password" component={ResetPasswordPage} />
         <Route path="/set-password" component={SetPasswordPage} />
         <Route component={NotFound} />
       </Switch>
