@@ -64,6 +64,7 @@ export interface IStorage {
   updateExam(id: number, exam: Partial<InsertExam>): Promise<Exam>;
   getExamQuestions(examId: number): Promise<Question[]>;
   addQuestionsToExam(examId: number, questions: InsertQuestion[]): Promise<void>;
+  deleteExam(id: number): Promise<void>;
 
   // Candidate operations
   getCandidates(): Promise<Candidate[]>;
@@ -72,6 +73,7 @@ export interface IStorage {
   getCandidatesByExam(examId: number): Promise<Candidate[]>;
   createCandidate(candidate: InsertCandidate): Promise<Candidate>;
   updateCandidate(id: number, candidate: Partial<InsertCandidate>): Promise<Candidate>;
+  deleteCandidate(id: number): Promise<void>;
 
   // Response operations
   getResponses(candidateId: number): Promise<Response[]>;
@@ -331,6 +333,32 @@ export class DatabaseStorage implements IStorage {
     return exam;
   }
 
+  async deleteExam(id: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Delete all exam_questions links first
+      await tx.delete(examQuestions).where(eq(examQuestions.examId, id));
+      
+      // Delete all candidates and their related data
+      const candidatesToDelete = await tx
+        .select()
+        .from(candidates)
+        .where(eq(candidates.examId, id));
+      
+      for (const candidate of candidatesToDelete) {
+        // Delete responses
+        await tx.delete(responses).where(eq(responses.candidateId, candidate.id));
+        // Delete proctor logs
+        await tx.delete(proctorLogs).where(eq(proctorLogs.candidateId, candidate.id));
+      }
+      
+      // Delete candidates
+      await tx.delete(candidates).where(eq(candidates.examId, id));
+      
+      // Finally delete the exam
+      await tx.delete(exams).where(eq(exams.id, id));
+    });
+  }
+
   async getExamQuestions(examId: number): Promise<Question[]> {
     const result = await db
       .select({
@@ -417,6 +445,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(candidates.id, id))
       .returning();
     return candidate;
+  }
+
+  async deleteCandidate(id: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Delete responses first
+      await tx.delete(responses).where(eq(responses.candidateId, id));
+      // Delete proctor logs
+      await tx.delete(proctorLogs).where(eq(proctorLogs.candidateId, id));
+      // Delete the candidate
+      await tx.delete(candidates).where(eq(candidates.id, id));
+    });
   }
 
   // Response operations

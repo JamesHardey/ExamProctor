@@ -457,6 +457,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/exams/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const examId = parseInt(req.params.id);
+      await storage.deleteExam(examId);
+      res.json({ message: "Exam deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting exam:", error);
+      res.status(500).json({ message: "Failed to delete exam" });
+    }
+  });
+
   // Document upload and text extraction endpoint
   app.post("/api/ai/extract-document", isAuthenticated, isAdmin, upload.single('document'), async (req, res) => {
     try {
@@ -623,6 +634,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating candidate:", error);
       res.status(400).json({ message: error.message || "Failed to assign exam" });
+    }
+  });
+
+  app.delete("/api/candidates/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const candidateId = parseInt(req.params.id);
+      await storage.deleteCandidate(candidateId);
+      res.json({ message: "Candidate deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting candidate:", error);
+      res.status(500).json({ message: "Failed to delete candidate" });
     }
   });
 
