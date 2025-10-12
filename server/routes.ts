@@ -31,12 +31,14 @@ const upload = multer({
     const allowedMimes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword'
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-powerpoint'
     ];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only PDF and Word documents are allowed.'));
+      cb(new Error('Invalid file type. Only PDF, Word, and PowerPoint documents are allowed.'));
     }
   },
 });

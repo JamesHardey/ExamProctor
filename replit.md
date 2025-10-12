@@ -33,10 +33,10 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
 - **Bulk Operations:** CSV import for candidates and CSV/PDF export for exam results, proctoring logs, and analytics reports using `jsPDF` and `PapaParse`.
   - **Results Export:** Administrators can view all completed candidate results in a table and export to CSV or PDF format with full candidate details (name, email, department, matric no, score, status, completion time).
 - **AI Question Generation from Documents:**
-    - **Document Upload:** Administrators can upload PDF or Word documents to provide context for AI question generation
-    - **Text Extraction:** Automatically extracts text from PDF (using pdf-parse) and Word documents (using mammoth)
+    - **Document Upload:** Administrators can upload PDF, Word, or PowerPoint documents to provide context for AI question generation
+    - **Text Extraction:** Automatically extracts text from PDF (using pdf-parse), Word documents (using mammoth), and PowerPoint presentations (using officeparser)
     - **Context-Aware Generation:** AI generates questions based on document content when provided, ensuring relevance to specific course materials
-    - **File Restrictions:** Supports PDF (.pdf) and Word (.doc, .docx) files up to 10MB
+    - **File Restrictions:** Supports PDF (.pdf), Word (.doc, .docx), and PowerPoint (.ppt, .pptx) files up to 10MB
     - **Optional Feature:** Documents can be uploaded during exam creation or when generating questions in exam management, but are not required
     - **Integration Points:** Available in both exam creation form and exam management "Generate with AI" dialog
 - **Real-time Communication:** WebSockets for live monitoring and alerts.
@@ -52,5 +52,5 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
 - **Email Service:** Nodemailer (requires SMTP configuration)
 - **PDF Generation:** jsPDF
 - **CSV Parsing/Generation:** PapaParse
-- **Document Processing:** pdf-parse (PDF text extraction), mammoth (Word document text extraction), multer (file upload handling)
+- **Document Processing:** pdf-parse (PDF text extraction), mammoth (Word document text extraction), officeparser (PowerPoint text extraction), multer (file upload handling)
 - **Authentication/Session Management:** bcrypt, express-session

@@ -688,13 +688,15 @@ export default function ExamManagePage() {
     const allowedTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword'
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-powerpoint'
     ];
     
     if (!allowedTypes.includes(file.type)) {
       toast({
         title: "Invalid File",
-        description: "Please upload a PDF or Word document",
+        description: "Please upload a PDF, Word, or PowerPoint document",
         variant: "destructive",
       });
       return;
@@ -977,14 +979,14 @@ export default function ExamManagePage() {
                   <div className="space-y-2">
                     <Label htmlFor="document-manage">Upload Document (Optional)</Label>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Upload a PDF or Word document to generate questions based on its content
+                      Upload a PDF, Word, or PowerPoint document to generate questions based on its content
                     </p>
                     {!uploadedDocName ? (
                       <div className="flex items-center gap-2">
                         <Input
                           id="document-manage"
                           type="file"
-                          accept=".pdf,.doc,.docx"
+                          accept=".pdf,.doc,.docx,.ppt,.pptx"
                           onChange={handleDocumentUpload}
                           disabled={isUploadingDoc}
                           data-testid="input-document-upload-manage"

@@ -1,7 +1,10 @@
 import mammoth from 'mammoth';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+const pdfParseModule = require('pdf-parse');
+// Handle both default and named exports
+const pdfParse = pdfParseModule.default || pdfParseModule;
+const officeParser = require('officeparser');
 
 /**
  * Extract text from PDF buffer
@@ -31,6 +34,19 @@ export async function extractTextFromWord(buffer: Buffer): Promise<string> {
 }
 
 /**
+ * Extract text from PowerPoint buffer
+ */
+export async function extractTextFromPowerPoint(buffer: Buffer): Promise<string> {
+  try {
+    const text = await officeParser.parseOfficeAsync(buffer);
+    return text;
+  } catch (error) {
+    console.error('PowerPoint parsing error:', error);
+    throw new Error('Failed to extract text from PowerPoint');
+  }
+}
+
+/**
  * Extract text from uploaded file based on file type
  */
 export async function extractTextFromDocument(
@@ -44,7 +60,12 @@ export async function extractTextFromDocument(
     mimetype === 'application/msword'
   ) {
     return extractTextFromWord(buffer);
+  } else if (
+    mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    mimetype === 'application/vnd.ms-powerpoint'
+  ) {
+    return extractTextFromPowerPoint(buffer);
   } else {
-    throw new Error('Unsupported file type. Please upload a PDF or Word document.');
+    throw new Error('Unsupported file type. Please upload a PDF, Word, or PowerPoint document.');
   }
 }
