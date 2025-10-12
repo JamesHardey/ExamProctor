@@ -46,6 +46,7 @@ export default function ExamsPage() {
   const [documentContent, setDocumentContent] = useState<string>("");
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [uploadedDocName, setUploadedDocName] = useState<string>("");
+  const [examToDelete, setExamToDelete] = useState<number | null>(null);
   const { toast} = useToast();
 
   const { data: exams, isLoading } = useQuery<Exam[]>({
@@ -70,6 +71,27 @@ export default function ExamsPage() {
       toast({
         title: "Success",
         description: "Exam created successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (examId: number) => {
+      return await apiRequest("DELETE", `/api/exams/${examId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exams"] });
+      setExamToDelete(null);
+      toast({
+        title: "Success",
+        description: "Exam deleted successfully",
       });
     },
     onError: (error: Error) => {
@@ -273,6 +295,14 @@ export default function ExamsPage() {
                   >
                     <Pencil className="h-4 w-4 mr-2" />
                     Manage
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setExamToDelete(exam.id)}
+                    data-testid={`button-delete-exam-${exam.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -637,6 +667,36 @@ export default function ExamsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={examToDelete !== null} onOpenChange={() => setExamToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Exam</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this exam? This action cannot be undone.
+              All associated candidates, responses, and proctoring logs will also be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setExamToDelete(null)}
+              data-testid="button-cancel-delete"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => examToDelete && deleteMutation.mutate(examToDelete)}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete-exam"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
