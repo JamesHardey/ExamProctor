@@ -40,6 +40,8 @@ import {
 import type { Exam, Domain } from "@shared/schema";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 type QuestionInput = {
   type: "multiple_choice" | "true_false";
@@ -564,6 +566,91 @@ export default function ExamManagePage() {
     a.download = `${exam?.title || 'exam'}-credentials.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportResultsCSV = () => {
+    if (!examCandidates) return;
+    
+    const completedCandidates = examCandidates.filter(
+      c => c.status === "completed" || c.status === "auto_submitted"
+    );
+    
+    if (completedCandidates.length === 0) return;
+
+    const csvData = completedCandidates.map(c => ({
+      'Name': `${c.user?.firstName || ''} ${c.user?.lastName || ''}`.trim(),
+      'Email': c.user?.email || '',
+      'Department': c.user?.department || '-',
+      'Matric No': c.user?.matricNo || '-',
+      'Score': c.score !== null && c.score !== undefined ? `${c.score}%` : 'N/A',
+      'Status': c.status === 'auto_submitted' ? 'Auto-Submitted' : 'Completed',
+      'Completed At': c.completedAt ? new Date(c.completedAt).toLocaleString() : '-',
+    }));
+
+    const csvContent = Papa.unparse(csvData);
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exam?.title || 'exam'}-results.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Export Successful",
+      description: "Results exported to CSV successfully",
+    });
+  };
+
+  const handleExportResultsPDF = () => {
+    if (!examCandidates || !exam) return;
+    
+    const completedCandidates = examCandidates.filter(
+      c => c.status === "completed" || c.status === "auto_submitted"
+    );
+    
+    if (completedCandidates.length === 0) return;
+
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.text(`Exam Results: ${exam.title}`, 14, 20);
+    
+    // Add exam info
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Total Candidates: ${completedCandidates.length}`, 14, 36);
+    
+    // Prepare table data
+    const tableData = completedCandidates.map(c => [
+      `${c.user?.firstName || ''} ${c.user?.lastName || ''}`.trim(),
+      c.user?.email || '',
+      c.user?.department || '-',
+      c.user?.matricNo || '-',
+      c.score !== null && c.score !== undefined ? `${c.score}%` : 'N/A',
+      c.status === 'auto_submitted' ? 'Auto-Submitted' : 'Completed',
+      c.completedAt ? new Date(c.completedAt).toLocaleString() : '-',
+    ]);
+    
+    // Add table
+    (doc as any).autoTable({
+      head: [['Name', 'Email', 'Department', 'Matric No', 'Score', 'Status', 'Completed At']],
+      body: tableData,
+      startY: 45,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 139, 202] },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      margin: { top: 45 },
+    });
+    
+    // Save PDF
+    doc.save(`${exam.title || 'exam'}-results.pdf`);
+    
+    toast({
+      title: "Export Successful",
+      description: "Results exported to PDF successfully",
+    });
   };
 
   if (!examId || examLoading) {
@@ -1242,10 +1329,87 @@ export default function ExamManagePage() {
 
         <TabsContent value="results" className="space-y-4">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Exam Results</h3>
-            <p className="text-sm text-muted-foreground">
-              View results of candidates who have taken this exam (coming soon)
-            </p>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Exam Results</h3>
+              {examCandidates && examCandidates.filter(c => c.status === "completed" || c.status === "auto_submitted").length > 0 && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportResultsCSV}
+                    data-testid="button-export-csv"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportResultsPDF}
+                    data-testid="button-export-pdf"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export PDF
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {examCandidates && examCandidates.filter(c => c.status === "completed" || c.status === "auto_submitted").length > 0 ? (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Name</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Email</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Department</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Matric No</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Score</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Status</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium">Completed At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {examCandidates
+                      .filter(c => c.status === "completed" || c.status === "auto_submitted")
+                      .map((candidate: any, idx: number) => (
+                        <tr key={candidate.id} className="border-t" data-testid={`result-row-${idx}`}>
+                          <td className="px-4 py-2 text-sm">
+                            {candidate.user?.firstName} {candidate.user?.lastName}
+                          </td>
+                          <td className="px-4 py-2 text-sm">{candidate.user?.email}</td>
+                          <td className="px-4 py-2 text-sm">{candidate.user?.department || "-"}</td>
+                          <td className="px-4 py-2 text-sm">{candidate.user?.matricNo || "-"}</td>
+                          <td className="px-4 py-2 text-sm">
+                            <Badge variant={
+                              candidate.score !== null && candidate.score !== undefined && candidate.score >= 70 ? "default" : "destructive"
+                            }>
+                              {candidate.score !== null && candidate.score !== undefined ? `${candidate.score}%` : "N/A"}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            <Badge variant={
+                              candidate.status === "completed" ? "default" : "secondary"
+                            }>
+                              {candidate.status === "auto_submitted" ? "Auto-Submitted" : "Completed"}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            {candidate.completedAt 
+                              ? new Date(candidate.completedAt).toLocaleString()
+                              : "-"
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No completed exams yet
+              </p>
+            )}
           </Card>
         </TabsContent>
       </Tabs>
