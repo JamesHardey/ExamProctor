@@ -17,6 +17,7 @@ interface GenerateQuestionsParams {
   examDescription: string;
   domainName: string;
   questionCount: number;
+  documentContent?: string; // Optional document content for context
 }
 
 interface AIQuestion {
@@ -29,13 +30,25 @@ interface AIQuestion {
 export async function generateQuestionsWithAI(
   params: GenerateQuestionsParams
 ): Promise<InsertQuestion[]> {
-  const { domainId, examTitle, examDescription, domainName, questionCount } = params;
+  const { domainId, examTitle, examDescription, domainName, questionCount, documentContent } = params;
+
+  let contextInfo = `Exam Title: ${examTitle}
+Domain: ${domainName}
+Description: ${examDescription}`;
+
+  // Add document content if provided
+  if (documentContent) {
+    contextInfo += `
+
+Document Content:
+${documentContent}
+
+Generate questions strictly based on the content provided in the document above.`;
+  }
 
   const prompt = `You are an expert exam question generator. Generate ${questionCount} exam questions based on the following information:
 
-Exam Title: ${examTitle}
-Domain: ${domainName}
-Description: ${examDescription}
+${contextInfo}
 
 Requirements:
 1. Generate a mix of multiple choice and true/false questions

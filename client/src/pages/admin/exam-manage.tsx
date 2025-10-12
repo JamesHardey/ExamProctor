@@ -17,7 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles, Pencil, Trash2, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -58,6 +58,9 @@ export default function ExamManagePage() {
   const [newQuestions, setNewQuestions] = useState<QuestionInput[]>([]);
   const [useAI, setUseAI] = useState(false);
   const [aiQuestionCount, setAiQuestionCount] = useState(5);
+  const [documentContent, setDocumentContent] = useState<string>("");
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [uploadedDocName, setUploadedDocName] = useState<string>("");
   const [importResults, setImportResults] = useState<any>(null);
   const [importedCandidates, setImportedCandidates] = useState<any[]>([]);
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
@@ -184,6 +187,7 @@ export default function ExamManagePage() {
         domainId: exam.domainId,
         description: exam.description || "",
         count: aiQuestionCount,
+        documentContent: documentContent || undefined,
       });
       
       if (!response?.questions || !Array.isArray(response.questions)) {
@@ -653,6 +657,64 @@ export default function ExamManagePage() {
     });
   };
 
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a PDF or Word document",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+
+      const response = await fetch('/api/ai/extract-document', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to extract document text');
+      }
+
+      const data = await response.json();
+      setDocumentContent(data.text);
+      setUploadedDocName(file.name);
+      
+      toast({
+        title: "Document Uploaded",
+        description: `Successfully extracted text from ${file.name}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload document",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  const clearDocument = () => {
+    setDocumentContent("");
+    setUploadedDocName("");
+  };
+
   if (!examId || examLoading) {
     return (
       <div className="p-6">
@@ -887,8 +949,44 @@ export default function ExamManagePage() {
                       placeholder="5"
                       data-testid="input-ai-question-count"
                     />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="document-manage">Upload Document (Optional)</Label>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Upload a PDF or Word document to generate questions based on its content
+                    </p>
+                    {!uploadedDocName ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="document-manage"
+                          type="file"
+                          accept=".pdf,.doc,.docx"
+                          onChange={handleDocumentUpload}
+                          disabled={isUploadingDoc}
+                          data-testid="input-document-upload-manage"
+                        />
+                        {isUploadingDoc && <span className="text-sm text-muted-foreground">Uploading...</span>}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm flex-1">{uploadedDocName}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearDocument}
+                          data-testid="button-clear-document-manage"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                     <p className="text-sm text-muted-foreground">
-                      AI will generate questions based on exam title, domain, and description
+                      {documentContent 
+                        ? "Questions will be generated from the uploaded document content" 
+                        : "Without a document, AI will generate questions based on exam title, domain, and description"}
                     </p>
                   </div>
                   <Button

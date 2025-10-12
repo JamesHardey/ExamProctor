@@ -43,7 +43,10 @@ export default function ExamsPage() {
   const [selectedDomain, setSelectedDomain] = useState<number | null>(null);
   const [useAI, setUseAI] = useState(false);
   const [aiQuestionCount, setAiQuestionCount] = useState<number>(5);
-  const { toast } = useToast();
+  const [documentContent, setDocumentContent] = useState<string>("");
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [uploadedDocName, setUploadedDocName] = useState<string>("");
+  const { toast} = useToast();
 
   const { data: exams, isLoading } = useQuery<Exam[]>({
     queryKey: ["/api/exams"],
@@ -107,7 +110,66 @@ export default function ExamsPage() {
       questions: questionsData,
       useAI,
       aiQuestionCount: useAI ? aiQuestionCount : 0,
+      documentContent: useAI && documentContent ? documentContent : undefined,
     });
+  };
+
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a PDF or Word document",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+
+      const response = await fetch('/api/ai/extract-document', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to extract document text');
+      }
+
+      const data = await response.json();
+      setDocumentContent(data.text);
+      setUploadedDocName(file.name);
+      
+      toast({
+        title: "Document Uploaded",
+        description: `Successfully extracted text from ${file.name}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload document",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  const clearDocument = () => {
+    setDocumentContent("");
+    setUploadedDocName("");
   };
 
   const addQuestion = () => {
@@ -374,21 +436,59 @@ export default function ExamsPage() {
                 </div>
 
                 {useAI && (
-                  <div className="space-y-2">
-                    <Label htmlFor="aiQuestionCount">Number of AI Questions</Label>
-                    <Input
-                      id="aiQuestionCount"
-                      type="number"
-                      min="1"
-                      max="50"
-                      value={aiQuestionCount}
-                      onChange={(e) => setAiQuestionCount(parseInt(e.target.value) || 5)}
-                      placeholder="5"
-                      data-testid="input-ai-question-count"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      AI will generate questions based on exam title, domain, and description
-                    </p>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="aiQuestionCount">Number of AI Questions</Label>
+                      <Input
+                        id="aiQuestionCount"
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={aiQuestionCount}
+                        onChange={(e) => setAiQuestionCount(parseInt(e.target.value) || 5)}
+                        placeholder="5"
+                        data-testid="input-ai-question-count"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="document">Upload Document (Optional)</Label>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Upload a PDF or Word document to generate questions based on its content
+                      </p>
+                      {!uploadedDocName ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="document"
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={handleDocumentUpload}
+                            disabled={isUploadingDoc}
+                            data-testid="input-document-upload"
+                          />
+                          {isUploadingDoc && <span className="text-sm text-muted-foreground">Uploading...</span>}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm flex-1">{uploadedDocName}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearDocument}
+                            data-testid="button-clear-document"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                      <p className="text-sm text-muted-foreground">
+                        {documentContent 
+                          ? "Questions will be generated from the uploaded document content" 
+                          : "Without a document, AI will generate questions based on exam title, domain, and description"}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

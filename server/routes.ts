@@ -2,10 +2,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import multer from "multer";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin, generateInvitationToken } from "./auth";
 import { sendInvitationEmail, isEmailConfigured, sendCandidateCredentials, sendPasswordResetEmail } from "./email";
 import { generateQuestionsWithAI } from "./ai";
+import { extractTextFromDocument } from "./document-parser";
 import {
   insertDomainSchema,
   insertQuestionSchema,
@@ -18,6 +20,26 @@ import { randomBytes } from "crypto";
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 12;
+
+// Configure multer for file uploads (in-memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword'
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF and Word documents are allowed.'));
+    }
+  },
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -364,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/exams", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { questions: questionsData, useAI, aiQuestionCount, ...examData } = req.body;
+      const { questions: questionsData, useAI, aiQuestionCount, documentContent, ...examData } = req.body;
       const validatedExamData = insertExamSchema.parse(examData);
       
       let finalQuestions = questionsData || [];
@@ -389,6 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           examDescription: validatedExamData.description || "",
           domainName: domain.name,
           questionCount: aiQuestionCount,
+          documentContent, // Pass document content if provided
         });
         
         finalQuestions = [...finalQuestions, ...aiQuestions];
@@ -434,10 +457,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI question generation endpoint
+  // Document upload and text extraction endpoint
+  app.post("/api/ai/extract-document", isAuthenticated, isAdmin, upload.single('document'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No document file provided" });
+      }
+
+      const extractedText = await extractTextFromDocument(req.file.buffer, req.file.mimetype);
+      
+      res.json({ 
+        text: extractedText,
+        filename: req.file.originalname,
+        size: req.file.size,
+      });
+    } catch (error: any) {
+      console.error("Error extracting document text:", error);
+      res.status(400).json({ message: error.message || "Failed to extract text from document" });
+    }
+  });
+
+  // AI question generation endpoint (supports document content)
   app.post("/api/ai/generate-questions", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { examTitle, domainId, description, count } = req.body;
+      const { examTitle, domainId, description, count, documentContent } = req.body;
       
       if (!process.env.OPENAI_API_KEY) {
         return res.status(400).json({ 
@@ -457,6 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         examDescription: description || "",
         domainName: domain.name,
         questionCount: count || 5,
+        documentContent, // Optional document content
       });
       
       res.json({ questions });
