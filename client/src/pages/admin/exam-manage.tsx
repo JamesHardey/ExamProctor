@@ -72,6 +72,7 @@ export default function ExamManagePage() {
     department: "",
     matricNo: "",
   });
+  const [candidateToDelete, setCandidateToDelete] = useState<number | null>(null);
   
   // Form state for settings
   const [formData, setFormData] = useState({
@@ -320,6 +321,28 @@ export default function ExamManagePage() {
       toast({
         title: "Retake Allowed",
         description: "Candidate can now retake the exam",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCandidateMutation = useMutation({
+    mutationFn: async (candidateId: number) => {
+      return await apiRequest("DELETE", `/api/candidates/${candidateId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exams", examId, "candidates"] });
+      refetchCandidates();
+      setCandidateToDelete(null);
+      toast({
+        title: "Success",
+        description: "Candidate deleted successfully",
       });
     },
     onError: (error: Error) => {
@@ -1412,6 +1435,14 @@ export default function ExamManagePage() {
                                 Allow Retake
                               </Button>
                             )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setCandidateToDelete(candidate.id)}
+                              data-testid={`button-delete-candidate-${idx}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -1646,6 +1677,32 @@ export default function ExamManagePage() {
               data-testid="button-confirm-delete"
             >
               {deleteQuestionMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Candidate Confirmation */}
+      <AlertDialog open={!!candidateToDelete} onOpenChange={(open) => !open && setCandidateToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Candidate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this candidate? This action cannot be undone.
+              All associated responses and proctoring logs will also be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-candidate">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (candidateToDelete) {
+                  deleteCandidateMutation.mutate(candidateToDelete);
+                }
+              }}
+              data-testid="button-confirm-delete-candidate"
+            >
+              {deleteCandidateMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
