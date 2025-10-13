@@ -143,9 +143,7 @@ export async function sendInvitationEmail(
 }
 
 function getInvitationLink(token: string): string {
-  const baseUrl = process.env.REPLIT_DOMAINS
-    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-    : "http://localhost:5000";
+  const baseUrl = process.env.APP_URL || "http://localhost:5000";
   return `${baseUrl}/set-password?token=${token}`;
 }
 
@@ -270,9 +268,7 @@ export async function sendPasswordResetEmail(
 }
 
 function getPasswordResetLink(token: string): string {
-  const baseUrl = process.env.REPLIT_DOMAINS
-    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-    : "http://localhost:5000";
+  const baseUrl = process.env.APP_URL || "http://localhost:5000";
   return `${baseUrl}/admin/reset-password?token=${token}`;
 }
 
@@ -292,8 +288,8 @@ export async function sendCandidateCredentials(data: CandidateEmailData): Promis
     return false;
   }
 
-  const loginUrl = process.env.REPLIT_DOMAINS
-    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}/login`
+  const loginUrl = process.env.APP_URL 
+    ? `${process.env.APP_URL}/login`
     : "http://localhost:5000/login";
 
   const emailHtml = `

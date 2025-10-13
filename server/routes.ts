@@ -89,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (!emailSent && process.env.NODE_ENV === "development") {
-        const resetLink = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : "http://localhost:5000"}/admin/reset-password?token=${resetToken}`;
+        const resetLink = `${process.env.APP_URL || "http://localhost:5000"}/admin/reset-password?token=${resetToken}`;
         console.log("\n========================================");
         console.log("[FORGOT-PASSWORD] Email sending failed!");
         console.log("Reset link for development:", resetLink);
