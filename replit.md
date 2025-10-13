@@ -48,9 +48,38 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
 - **Backend Framework:** Express.js
 - **Database:** PostgreSQL
 - **ORM:** Drizzle ORM
+- **Database Driver:** pg (node-postgres) for local/standard PostgreSQL deployments
 - **AI/ML:** TensorFlow.js with BlazeFace model (for face detection), OpenAI GPT-4 (for question generation)
 - **Email Service:** Nodemailer (requires SMTP configuration)
 - **PDF Generation:** jsPDF
 - **CSV Parsing/Generation:** PapaParse
 - **Document Processing:** pdf-parse (PDF text extraction), mammoth (Word document text extraction), officeparser (PowerPoint text extraction), multer (file upload handling)
 - **Authentication/Session Management:** bcrypt, express-session
+
+### Local Deployment Support
+The codebase has been prepared for local deployment outside of Replit:
+
+**Database Configuration:**
+- Uses standard `pg` (node-postgres) driver for PostgreSQL connections
+- Compatible with any PostgreSQL database (local, AWS RDS, Azure Database, etc.)
+- Connection via `DATABASE_URL` environment variable
+
+**Environment Variables:**
+- `APP_URL` - Application base URL (replaces Replit-specific `REPLIT_DOMAINS`)
+- `DATABASE_URL` - PostgreSQL connection string
+- `SESSION_SECRET` - Session encryption key
+- `OPENAI_API_KEY` - OpenAI API key for AI features
+- `SMTP_*` - Optional email configuration
+- See `.env.example` for complete list
+
+**Replit-Specific Files (safe to ignore for local deployment):**
+- `.replit` - Replit environment configuration (only used in Replit)
+- `vite.config.ts` - Contains conditional Replit plugins that only load when `REPL_ID` environment variable exists
+- Replit Vite plugins in `devDependencies` - Only activate in Replit environment
+
+**Local Setup:**
+See `LOCAL_DEPLOYMENT.md` for complete local deployment instructions including:
+- PostgreSQL setup
+- Environment configuration
+- Database initialization
+- Development and production builds
