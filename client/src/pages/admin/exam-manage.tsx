@@ -730,12 +730,13 @@ export default function ExamManagePage() {
       const response = await fetch(`/api/monitoring/logs/export?examId=${examId}`);
       
       if (!response.ok) {
-        throw new Error('Failed to export logs');
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(errorData.message || 'Failed to export logs');
       }
 
       const logsData: ProctorLogWithDetails[] = await response.json();
 
-      if (logsData.length === 0) {
+      if (!Array.isArray(logsData) || logsData.length === 0) {
         toast({
           title: "No Logs",
           description: "There are no proctoring logs to export for this exam",
@@ -744,13 +745,13 @@ export default function ExamManagePage() {
       }
 
       const csvData = logsData.map(log => ({
-        'Timestamp': new Date(log.timestamp).toLocaleString(),
+        'Timestamp': log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A',
         'Candidate Name': log.candidate?.user?.firstName && log.candidate?.user?.lastName
           ? `${log.candidate.user.firstName} ${log.candidate.user.lastName}`
           : 'Unknown',
         'Email': log.candidate?.user?.email || 'Unknown',
-        'Event Type': log.eventType.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase()),
-        'Severity': log.severity,
+        'Event Type': log.eventType ? log.eventType.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown',
+        'Severity': log.severity || 'N/A',
         'Metadata': log.metadata ? JSON.stringify(log.metadata) : '-',
       }));
 
@@ -771,7 +772,7 @@ export default function ExamManagePage() {
       console.error('Error exporting logs:', error);
       toast({
         title: "Export Failed",
-        description: "Failed to export proctoring logs",
+        description: error instanceof Error ? error.message : "Failed to export proctoring logs",
         variant: "destructive",
       });
     }
