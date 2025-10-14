@@ -1120,8 +1120,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monitoring routes
   app.get("/api/monitoring/active", isAuthenticated, isAdmin, async (req, res) => {
     try {
+      const examId = req.query.examId ? parseInt(req.query.examId as string) : undefined;
       const candidates = await storage.getCandidates();
-      const activeSessions = candidates.filter(c => c.status === "in_progress");
+      let activeSessions = candidates.filter(c => c.status === "in_progress");
+      
+      // Filter by exam ID if provided
+      if (examId) {
+        activeSessions = activeSessions.filter(c => c.examId === examId);
+      }
 
       const sessionsWithDetails = await Promise.all(
         activeSessions.map(async (candidate) => {
@@ -1140,10 +1146,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/monitoring/logs", isAuthenticated, isAdmin, async (req, res) => {
     try {
+      const examId = req.query.examId ? parseInt(req.query.examId as string) : undefined;
       const logs = await storage.getProctorLogs();
       
+      // Filter by exam ID if provided
+      let filteredLogs = logs;
+      if (examId) {
+        const examCandidates = await storage.getExamCandidates(examId);
+        const candidateIds = examCandidates.map(c => c.id);
+        filteredLogs = logs.filter(log => candidateIds.includes(log.candidateId));
+      }
+      
       const logsWithDetails = await Promise.all(
-        logs.slice(0, 20).map(async (log) => {
+        filteredLogs.slice(0, 20).map(async (log) => {
           const candidate = await storage.getCandidate(log.candidateId);
           let user = undefined;
           if (candidate) {
