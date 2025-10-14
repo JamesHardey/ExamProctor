@@ -1136,7 +1136,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeSessions.map(async (candidate) => {
           const user = await storage.getUser(candidate.userId);
           const exam = await storage.getExam(candidate.examId);
-          return { ...candidate, user, exam };
+          
+          // Calculate time remaining
+          let timeRemaining = null;
+          if (candidate.startedAt && exam?.duration) {
+            const startTime = new Date(candidate.startedAt).getTime();
+            const currentTime = Date.now();
+            const elapsedMinutes = (currentTime - startTime) / (1000 * 60);
+            const remainingMinutes = Math.max(0, exam.duration - elapsedMinutes);
+            
+            // Format as MM:SS
+            const minutes = Math.floor(remainingMinutes);
+            const seconds = Math.floor((remainingMinutes - minutes) * 60);
+            timeRemaining = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+          }
+          
+          return { ...candidate, user, exam, timeRemaining };
         })
       );
 

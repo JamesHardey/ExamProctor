@@ -1693,7 +1693,9 @@ export default function ExamManagePage() {
 
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Time Remaining:</span>
-                        <span className="font-medium font-mono">{session.timeRemaining || "45:32"}</span>
+                        <span className="font-medium font-mono" data-testid={`time-remaining-${session.id}`}>
+                          {session.timeRemaining || "00:00"}
+                        </span>
                       </div>
                     </div>
                   );
