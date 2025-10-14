@@ -1654,7 +1654,18 @@ export default function ExamManagePage() {
 
         <TabsContent value="logs" className="space-y-4">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Proctoring Events</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Proctoring Events</h3>
+              <Button
+                onClick={handleExportLogs}
+                variant="outline"
+                size="sm"
+                data-testid="button-export-logs"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download CSV
+              </Button>
+            </div>
             {logsLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4].map((i) => (
