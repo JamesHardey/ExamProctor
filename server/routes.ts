@@ -1121,13 +1121,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/monitoring/active", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const examId = req.query.examId ? parseInt(req.query.examId as string) : undefined;
-      const candidates = await storage.getCandidates();
-      let activeSessions = candidates.filter(c => c.status === "in_progress");
       
-      // Filter by exam ID if provided
+      // Fetch candidates based on exam ID filter
+      let candidates;
       if (examId) {
-        activeSessions = activeSessions.filter(c => c.examId === examId);
+        candidates = await storage.getCandidatesByExam(examId);
+      } else {
+        candidates = await storage.getCandidates();
       }
+      
+      const activeSessions = candidates.filter(c => c.status === "in_progress");
 
       const sessionsWithDetails = await Promise.all(
         activeSessions.map(async (candidate) => {
@@ -1152,7 +1155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter by exam ID if provided
       let filteredLogs = logs;
       if (examId) {
-        const examCandidates = await storage.getExamCandidates(examId);
+        const examCandidates = await storage.getCandidatesByExam(examId);
         const candidateIds = examCandidates.map(c => c.id);
         filteredLogs = logs.filter(log => candidateIds.includes(log.candidateId));
       }
