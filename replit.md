@@ -17,7 +17,7 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
 **Technical Implementations:**
 - **Database Schema:** Includes tables for `users`, `sessions`, `domains`, `questions`, `exams`, `exam_questions`, `candidates`, `responses`, and `proctor_logs`, with defined relationships.
   - **Exam Status Values:** `draft` (not accessible to candidates), `active` (full access), `inactive` (labeled as "Archived" - prevents new attempts but allows viewing completed results)
-- **Admin Features:** Dashboard, exam/question/candidate/domain management, live monitoring, analytics, bulk import/export, exam results viewing with CSV/PDF export capabilities, and AI question generation from uploaded PDF/Word documents.
+- **Admin Features:** Dashboard, exam/question/candidate/domain management, live monitoring (global and per-exam), analytics, bulk import/export, exam results viewing with CSV/PDF export capabilities, and AI question generation from uploaded PDF/Word documents.
 - **Candidate Features:** My Exams view, pre-exam checks, proctored exam sessions (one question at a time, timer, webcam, microphone, fullscreen, tab switch detection, auto-save), and result viewing.
   - **Exam Access Control:** Draft exams filtered on both frontend and backend, inactive (archived) exams prevent new attempts but allow result viewing
 - **Advanced Proctoring:**
@@ -32,6 +32,7 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
 - **Authentication:** Password-based authentication with bcrypt, session management (secure cookies in production only), admin registration, candidate invitation workflow via email, and password reset functionality for administrators with email-based token validation (tokens are hashed before storage and expire after 1 hour).
 - **Bulk Operations:** CSV import for candidates and CSV/PDF export for exam results, proctoring logs, and analytics reports using `jsPDF` and `PapaParse`.
   - **Results Export:** Administrators can view all completed candidate results in a table and export to CSV or PDF format with full candidate details (name, email, department, matric no, score, status, completion time).
+- **Per-Exam Monitoring:** Exam management page includes dedicated "Live Monitoring" and "Logs" tabs that display real-time sessions and proctoring events filtered specifically for that exam. These tabs auto-refresh every 5 seconds and use the `/api/monitoring/active?examId=X` and `/api/monitoring/logs?examId=X` endpoints to ensure proper exam-specific data isolation.
 - **AI Question Generation from Documents:**
     - **Document Upload:** Administrators can upload PDF, Word, or PowerPoint documents to provide context for AI question generation
     - **Text Extraction:** Automatically extracts text from PDF (using pdf-parse), Word documents (using mammoth), and PowerPoint presentations (using officeparser)
