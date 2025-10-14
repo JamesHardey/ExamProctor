@@ -17,7 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles, Pencil, Trash2, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Save, Upload, Download, X, Sparkles, Pencil, Trash2, FileText, Camera, Eye, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -37,11 +37,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { Exam, Domain } from "@shared/schema";
+import type { Exam, Domain, ProctorLog, Candidate, User } from "@shared/schema";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type QuestionInput = {
   type: "multiple_choice" | "true_false";
@@ -49,6 +50,10 @@ type QuestionInput = {
   options: string[];
   correctAnswer: string;
 };
+
+interface ProctorLogWithDetails extends ProctorLog {
+  candidate?: Candidate & { user?: User };
+}
 
 export default function ExamManagePage() {
   const [, params] = useRoute("/exams/:id/manage");
@@ -105,6 +110,44 @@ export default function ExamManagePage() {
     queryKey: ["/api/exams", examId, "candidates"],
     enabled: !!examId,
   });
+
+  const { data: activeSessions, isLoading: sessionsLoading } = useQuery({
+    queryKey: ["/api/monitoring/active", examId],
+    queryFn: () => fetch(`/api/monitoring/active?examId=${examId}`).then(res => res.json()),
+    enabled: !!examId,
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
+
+  const { data: logs, isLoading: logsLoading } = useQuery<ProctorLogWithDetails[]>({
+    queryKey: ["/api/monitoring/logs", examId],
+    queryFn: () => fetch(`/api/monitoring/logs?examId=${examId}`).then(res => res.json()),
+    enabled: !!examId,
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
+
+  // Helper functions for monitoring
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "high":
+        return "bg-destructive/10 text-destructive";
+      case "medium":
+        return "bg-chart-4/10 text-chart-4";
+      default:
+        return "bg-chart-2/10 text-chart-2";
+    }
+  };
+
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case "face_absent":
+      case "multiple_faces":
+        return Camera;
+      case "tab_switch":
+        return Eye;
+      default:
+        return AlertTriangle;
+    }
+  };
 
   // Generate cryptographically secure password for candidates
   const generatePassword = () => {
@@ -780,11 +823,13 @@ export default function ExamManagePage() {
       </div>
 
       <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="settings" data-testid="tab-settings">Settings</TabsTrigger>
           <TabsTrigger value="questions" data-testid="tab-questions">Questions</TabsTrigger>
           <TabsTrigger value="candidates" data-testid="tab-candidates">Candidates</TabsTrigger>
           <TabsTrigger value="results" data-testid="tab-results">Results</TabsTrigger>
+          <TabsTrigger value="monitoring" data-testid="tab-monitoring">Live Monitoring</TabsTrigger>
+          <TabsTrigger value="logs" data-testid="tab-logs">Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="space-y-4">
@@ -1539,6 +1584,125 @@ export default function ExamManagePage() {
             ) : (
               <p className="text-sm text-muted-foreground">
                 No completed exams yet
+              </p>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="monitoring" className="space-y-4">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Active Exam Sessions</h3>
+            {sessionsLoading ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {[1, 2].map((i) => (
+                  <Skeleton key={i} className="h-48" />
+                ))}
+              </div>
+            ) : activeSessions && activeSessions.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {activeSessions.map((session: any) => {
+                  const user = session.user;
+                  const initials = user?.firstName && user?.lastName 
+                    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+                    : user?.email?.[0]?.toUpperCase() || "U";
+
+                  return (
+                    <div
+                      key={session.id}
+                      className="p-4 rounded-lg border border-border bg-card"
+                      data-testid={`session-${session.id}`}
+                    >
+                      <div className="flex items-start gap-3 mb-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={user?.profileImageUrl || undefined} className="object-cover" />
+                          <AvatarFallback>{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">
+                            {user?.firstName && user?.lastName 
+                              ? `${user.firstName} ${user.lastName}`
+                              : user?.email || "Unknown"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{session.exam?.title}</p>
+                        </div>
+                        <Badge variant="outline" className="bg-chart-2/10 text-chart-2">
+                          <div className="h-2 w-2 rounded-full bg-chart-2 mr-1.5 animate-pulse" />
+                          Live
+                        </Badge>
+                      </div>
+
+                      <div className="aspect-video bg-muted rounded-md flex items-center justify-center mb-3">
+                        <Camera className="h-8 w-8 text-muted-foreground" />
+                        <span className="ml-2 text-sm text-muted-foreground">Camera Feed</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Time Remaining:</span>
+                        <span className="font-medium font-mono">{session.timeRemaining || "45:32"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-active-sessions">
+                No active exam sessions
+              </p>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-4">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Proctoring Events</h3>
+            {logsLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-20" />
+                ))}
+              </div>
+            ) : logs && logs.length > 0 ? (
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                {logs.map((log) => {
+                  const EventIcon = getEventIcon(log.eventType);
+                  const user = log.candidate?.user;
+
+                  return (
+                    <div
+                      key={log.id}
+                      className="p-3 rounded-lg border border-border"
+                      data-testid={`log-${log.id}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`h-8 w-8 rounded-lg ${getSeverityColor(log.severity)} flex items-center justify-center flex-shrink-0`}>
+                          <EventIcon className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className={getSeverityColor(log.severity)}>
+                              {log.severity}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(log.timestamp).toLocaleTimeString()}
+                            </p>
+                          </div>
+                          <p className="text-sm font-medium mb-1">
+                            {log.eventType.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {user?.firstName && user?.lastName 
+                              ? `${user.firstName} ${user.lastName}`
+                              : user?.email || "Unknown User"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-events">
+                No proctoring events
               </p>
             )}
           </Card>
