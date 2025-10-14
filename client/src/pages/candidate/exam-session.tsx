@@ -51,6 +51,8 @@ export default function ExamSessionPage({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const faceModelRef = useRef<blazeface.BlazeFaceModel | null>(null);
   const tabSwitchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { toast } = useToast();
 
   const { data: sessionData, isLoading } = useQuery<ExamSessionData>({
@@ -203,6 +205,67 @@ export default function ExamSessionPage({
       }
     };
   }, []);
+
+  // WebSocket connection for video streaming
+  useEffect(() => {
+    if (!candidateId) return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('WebSocket connected for video streaming');
+      ws.send(JSON.stringify({
+        type: 'register',
+        clientType: 'candidate',
+        candidateId: candidateId
+      }));
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+
+    // Setup canvas for capturing video frames
+    const canvas = document.createElement('canvas');
+    canvasRef.current = canvas;
+    canvas.width = 320; // Reduced size for better performance
+    canvas.height = 240;
+    const ctx = canvas.getContext('2d');
+
+    // Send video frames every 500ms (2 fps to reduce bandwidth)
+    const frameInterval = setInterval(() => {
+      if (videoRef.current && ctx && isCameraActive && 
+          ws.readyState === WebSocket.OPEN) {
+        try {
+          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          const frame = canvas.toDataURL('image/jpeg', 0.5); // Compress to 50% quality
+          
+          ws.send(JSON.stringify({
+            type: 'video_frame',
+            candidateId: candidateId,
+            frame: frame
+          }));
+        } catch (error) {
+          console.error('Error sending video frame:', error);
+        }
+      }
+    }, 500);
+
+    return () => {
+      clearInterval(frameInterval);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }, [candidateId, isCameraActive]);
 
   // Face Detection with TensorFlow.js
   useEffect(() => {

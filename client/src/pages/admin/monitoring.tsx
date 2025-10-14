@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,9 @@ interface ActiveSession extends Candidate {
 }
 
 export default function MonitoringPage() {
+  const [videoFeeds, setVideoFeeds] = useState<Map<number, string>>(new Map());
+  const wsRef = useRef<WebSocket | null>(null);
+
   const { data: activeSessions, isLoading: sessionsLoading } = useQuery<ActiveSession[]>({
     queryKey: ["/api/monitoring/active"],
   });
@@ -26,6 +30,53 @@ export default function MonitoringPage() {
   const { data: logs, isLoading: logsLoading } = useQuery<ProctorLogWithDetails[]>({
     queryKey: ["/api/monitoring/logs"],
   });
+
+  // WebSocket connection for receiving video feeds
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('Admin WebSocket connected for video monitoring');
+      ws.send(JSON.stringify({
+        type: 'register',
+        clientType: 'admin'
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'video_frame' && data.candidateId && data.frame) {
+          setVideoFeeds(prev => {
+            const updated = new Map(prev);
+            updated.set(data.candidateId, data.frame);
+            return updated;
+          });
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('Admin WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('Admin WebSocket disconnected');
+    };
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }, []);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -117,9 +168,19 @@ export default function MonitoringPage() {
                           </Badge>
                         </div>
 
-                        <div className="aspect-video bg-muted rounded-md flex items-center justify-center mb-3">
-                          <Camera className="h-8 w-8 text-muted-foreground" />
-                          <span className="ml-2 text-sm text-muted-foreground">Camera Feed</span>
+                        <div className="aspect-video bg-muted rounded-md flex items-center justify-center mb-3 relative overflow-hidden" data-testid={`camera-feed-${session.id}`}>
+                          {videoFeeds.get(session.id) ? (
+                            <img 
+                              src={videoFeeds.get(session.id)} 
+                              alt="Live camera feed"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <>
+                              <Camera className="h-8 w-8 text-muted-foreground" />
+                              <span className="ml-2 text-sm text-muted-foreground">Waiting for feed...</span>
+                            </>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between text-sm">

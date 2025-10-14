@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,8 @@ export default function ExamManagePage() {
     matricNo: "",
   });
   const [candidateToDelete, setCandidateToDelete] = useState<number | null>(null);
+  const [videoFeeds, setVideoFeeds] = useState<Map<number, string>>(new Map());
+  const wsRef = useRef<WebSocket | null>(null);
   
   // Form state for settings
   const [formData, setFormData] = useState({
@@ -177,6 +179,53 @@ export default function ExamManagePage() {
       });
     }
   }, [exam]);
+
+  // WebSocket connection for receiving video feeds
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('Admin WebSocket connected for video monitoring (per-exam)');
+      ws.send(JSON.stringify({
+        type: 'register',
+        clientType: 'admin'
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'video_frame' && data.candidateId && data.frame) {
+          setVideoFeeds(prev => {
+            const updated = new Map(prev);
+            updated.set(data.candidateId, data.frame);
+            return updated;
+          });
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('Admin WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('Admin WebSocket disconnected');
+    };
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }, []);
 
   const updateExamMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -1686,9 +1735,19 @@ export default function ExamManagePage() {
                         </Badge>
                       </div>
 
-                      <div className="aspect-video bg-muted rounded-md flex items-center justify-center mb-3">
-                        <Camera className="h-8 w-8 text-muted-foreground" />
-                        <span className="ml-2 text-sm text-muted-foreground">Camera Feed</span>
+                      <div className="aspect-video bg-muted rounded-md flex items-center justify-center mb-3 relative overflow-hidden" data-testid={`camera-feed-${session.id}`}>
+                        {videoFeeds.get(session.id) ? (
+                          <img 
+                            src={videoFeeds.get(session.id)} 
+                            alt="Live camera feed"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <>
+                            <Camera className="h-8 w-8 text-muted-foreground" />
+                            <span className="ml-2 text-sm text-muted-foreground">Waiting for feed...</span>
+                          </>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between text-sm">

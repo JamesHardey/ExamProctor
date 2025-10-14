@@ -34,6 +34,7 @@ The application is built with a **React + TypeScript** frontend utilizing **Tail
   - **Results Export:** Administrators can view all completed candidate results in a table and export to CSV or PDF format with full candidate details (name, email, department, matric no, score, status, completion time).
 - **Per-Exam Monitoring:** Exam management page includes dedicated "Live Monitoring" and "Logs" tabs that display real-time sessions and proctoring events filtered specifically for that exam. These tabs auto-refresh every 5 seconds and use the `/api/monitoring/active?examId=X` and `/api/monitoring/logs?examId=X` endpoints to ensure proper exam-specific data isolation.
   - **Logs Export:** Administrators can download ALL proctoring logs for a specific exam as CSV format. The export includes timestamp, candidate name, email, event type, severity, and metadata. Uses `/api/monitoring/logs/export?examId=X` endpoint which returns the complete log set without pagination limits.
+  - **Live Camera Streaming:** Administrators can view live camera feeds from candidates during exams via WebSocket streaming. Video frames are captured at 2fps (320x240, JPEG 50% quality) and broadcast to all connected admin clients in real-time.
 - **AI Question Generation from Documents:**
     - **Document Upload:** Administrators can upload PDF, Word, or PowerPoint documents to provide context for AI question generation
     - **Text Extraction:** Automatically extracts text from PDF (using pdf-parse), Word documents (using mammoth), and PowerPoint presentations (using officeparser)

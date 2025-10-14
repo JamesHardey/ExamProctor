@@ -1325,15 +1325,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WebSocket server for real-time monitoring (referenced from javascript_websocket blueprint)
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
+  // Track connected clients by type (candidate or admin) and ID
+  const clients = new Map<string, { ws: any; type: 'candidate' | 'admin'; id?: number }>();
+
   wss.on('connection', (ws) => {
     console.log('WebSocket client connected');
+    let clientId: string | null = null;
 
     ws.on('message', (message) => {
-      console.log('Received:', message.toString());
+      try {
+        const data = JSON.parse(message.toString());
+        
+        // Handle client registration
+        if (data.type === 'register') {
+          clientId = data.clientType === 'candidate' 
+            ? `candidate_${data.candidateId}` 
+            : `admin_${Date.now()}`;
+          
+          clients.set(clientId, {
+            ws,
+            type: data.clientType,
+            id: data.candidateId
+          });
+          
+          console.log(`Client registered: ${clientId}`);
+          ws.send(JSON.stringify({ type: 'registered', clientId }));
+        }
+        
+        // Handle video frames from candidate
+        else if (data.type === 'video_frame' && data.candidateId) {
+          // Broadcast video frame to all connected admin clients
+          clients.forEach((client, id) => {
+            if (client.type === 'admin' && client.ws.readyState === 1) {
+              client.ws.send(JSON.stringify({
+                type: 'video_frame',
+                candidateId: data.candidateId,
+                frame: data.frame,
+                timestamp: Date.now()
+              }));
+            }
+          });
+        }
+        
+        // Handle proctor events (existing functionality)
+        else if (data.type === 'proctor_event') {
+          // Broadcast to all admin clients
+          clients.forEach((client, id) => {
+            if (client.type === 'admin' && client.ws.readyState === 1) {
+              client.ws.send(JSON.stringify(data));
+            }
+          });
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
     });
 
     ws.on('close', () => {
-      console.log('WebSocket client disconnected');
+      if (clientId) {
+        clients.delete(clientId);
+        console.log(`WebSocket client disconnected: ${clientId}`);
+      }
     });
   });
 
