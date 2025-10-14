@@ -1178,6 +1178,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export all logs for an exam as CSV
+  app.get("/api/monitoring/logs/export", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const examId = req.query.examId ? parseInt(req.query.examId as string) : undefined;
+      
+      if (!examId) {
+        return res.status(400).json({ message: "Exam ID required" });
+      }
+
+      const logs = await storage.getProctorLogs();
+      const examCandidates = await storage.getCandidatesByExam(examId);
+      const candidateIds = examCandidates.map(c => c.id);
+      const filteredLogs = logs.filter(log => candidateIds.includes(log.candidateId));
+      
+      const logsWithDetails = await Promise.all(
+        filteredLogs.map(async (log) => {
+          const candidate = await storage.getCandidate(log.candidateId);
+          let user = undefined;
+          if (candidate) {
+            user = await storage.getUser(candidate.userId);
+          }
+          return { ...log, candidate: candidate ? { ...candidate, user } : undefined };
+        })
+      );
+
+      res.json(logsWithDetails);
+    } catch (error) {
+      console.error("Error exporting proctor logs:", error);
+      res.status(500).json({ message: "Failed to export logs" });
+    }
+  });
+
   // Check if email exists (admin only)
   app.get("/api/users/check-email", isAuthenticated, isAdmin, async (req, res) => {
     try {
