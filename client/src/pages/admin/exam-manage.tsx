@@ -723,6 +723,60 @@ export default function ExamManagePage() {
     });
   };
 
+  const handleExportLogs = async () => {
+    if (!examId) return;
+
+    try {
+      const response = await fetch(`/api/monitoring/logs/export?examId=${examId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to export logs');
+      }
+
+      const logsData: ProctorLogWithDetails[] = await response.json();
+
+      if (logsData.length === 0) {
+        toast({
+          title: "No Logs",
+          description: "There are no proctoring logs to export for this exam",
+        });
+        return;
+      }
+
+      const csvData = logsData.map(log => ({
+        'Timestamp': new Date(log.timestamp).toLocaleString(),
+        'Candidate Name': log.candidate?.user?.firstName && log.candidate?.user?.lastName
+          ? `${log.candidate.user.firstName} ${log.candidate.user.lastName}`
+          : 'Unknown',
+        'Email': log.candidate?.user?.email || 'Unknown',
+        'Event Type': log.eventType.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase()),
+        'Severity': log.severity,
+        'Metadata': log.metadata ? JSON.stringify(log.metadata) : '-',
+      }));
+
+      const csvContent = Papa.unparse(csvData);
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${exam?.title || 'exam'}-proctoring-logs.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${logsData.length} proctoring log(s) to CSV`,
+      });
+    } catch (error) {
+      console.error('Error exporting logs:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export proctoring logs",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
