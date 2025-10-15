@@ -115,6 +115,7 @@ export default function ExamsPage() {
       questionCount: parseInt(formData.get("questionCount") as string),
       showResults: formData.get("showResults") as string,
       status: "draft",
+      proctoringMode: formData.get("proctoringMode") as string,
       enableWebcam: formData.get("enableWebcam") === "on",
       enableTabDetection: formData.get("enableTabDetection") === "on",
     };
@@ -426,6 +427,23 @@ export default function ExamsPage() {
 
               <div className="space-y-4 pt-4 border-t">
                 <h4 className="font-medium">Proctoring Settings</h4>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="proctoringMode">Proctoring Mode *</Label>
+                  <Select name="proctoringMode" defaultValue="enforce" required>
+                    <SelectTrigger data-testid="select-proctoring-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="enforce">Enforce - Auto-logout on violations</SelectItem>
+                      <SelectItem value="monitor_only">Monitor Only - Log violations only</SelectItem>
+                      <SelectItem value="negative_marking">Negative Marking - Deduct -1 per high severity violation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground">
+                    Choose how proctoring violations should be handled during the exam
+                  </p>
+                </div>
                 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">

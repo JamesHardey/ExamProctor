@@ -21,6 +21,9 @@ interface ExamSessionData {
   candidateId: number;
   examTitle: string;
   duration: number;
+  proctoringMode: "enforce" | "monitor_only" | "negative_marking";
+  enableWebcam: boolean;
+  enableTabDetection: boolean;
   questions: Question[];
   randomizedQuestions: any[];
   responses: any[];
@@ -153,26 +156,38 @@ export default function ExamSessionPage({
             if (!highNoiseStartTime) highNoiseStartTime = now;
             if (now - highNoiseStartTime > 3000) {
               logProctorEvent("background_noise", "medium");
-              setNoiseWarningCount(prev => {
-                const newCount = prev + 1;
-                if (newCount >= 3) {
-                  toast({
-                    title: "Exam Terminated",
-                    description: "You have been logged out due to excessive background noise violations.",
-                    variant: "destructive",
-                  });
-                  setTimeout(() => {
-                    submitMutation.mutate();
-                  }, 2000);
-                } else {
-                  toast({
-                    title: `Background Noise Warning (${newCount}/3)`,
-                    description: "High audio levels detected. Please minimize background noise or you will be logged out.",
-                    variant: "destructive",
-                  });
-                }
-                return newCount;
-              });
+              
+              // Only enforce auto-logout if proctoring mode is "enforce"
+              if (sessionData?.proctoringMode === "enforce") {
+                setNoiseWarningCount(prev => {
+                  const newCount = prev + 1;
+                  if (newCount >= 3) {
+                    toast({
+                      title: "Exam Terminated",
+                      description: "You have been logged out due to excessive background noise violations.",
+                      variant: "destructive",
+                    });
+                    setTimeout(() => {
+                      submitMutation.mutate();
+                    }, 2000);
+                  } else {
+                    toast({
+                      title: `Background Noise Warning (${newCount}/3)`,
+                      description: "High audio levels detected. Please minimize background noise or you will be logged out.",
+                      variant: "destructive",
+                    });
+                  }
+                  return newCount;
+                });
+              } else {
+                // For monitor_only and negative_marking, just show a warning toast without enforcement
+                toast({
+                  title: "Background Noise Detected",
+                  description: "High audio levels detected. This has been logged.",
+                  variant: "destructive",
+                });
+              }
+              
               highNoiseStartTime = now;
             }
           } else {
@@ -293,26 +308,38 @@ export default function ExamSessionPage({
             // Log if no face detected for more than 10 seconds
             if (now - noFaceStartTime > 10000) {
               logProctorEvent("face_absent", "high");
-              setFaceWarningCount(prev => {
-                const newCount = prev + 1;
-                if (newCount >= 3) {
-                  toast({
-                    title: "Exam Terminated",
-                    description: "You have been logged out due to repeated failure to maintain camera focus.",
-                    variant: "destructive",
-                  });
-                  setTimeout(() => {
-                    submitMutation.mutate();
-                  }, 2000);
-                } else {
-                  toast({
-                    title: `Camera Focus Warning (${newCount}/3)`,
-                    description: "Please ensure your face is visible to the camera or you will be logged out.",
-                    variant: "destructive",
-                  });
-                }
-                return newCount;
-              });
+              
+              // Only enforce auto-logout if proctoring mode is "enforce"
+              if (sessionData?.proctoringMode === "enforce") {
+                setFaceWarningCount(prev => {
+                  const newCount = prev + 1;
+                  if (newCount >= 3) {
+                    toast({
+                      title: "Exam Terminated",
+                      description: "You have been logged out due to repeated failure to maintain camera focus.",
+                      variant: "destructive",
+                    });
+                    setTimeout(() => {
+                      submitMutation.mutate();
+                    }, 2000);
+                  } else {
+                    toast({
+                      title: `Camera Focus Warning (${newCount}/3)`,
+                      description: "Please ensure your face is visible to the camera or you will be logged out.",
+                      variant: "destructive",
+                    });
+                  }
+                  return newCount;
+                });
+              } else {
+                // For monitor_only and negative_marking, just show a warning toast
+                toast({
+                  title: "Face Not Detected",
+                  description: "Please ensure your face is visible to the camera. This has been logged.",
+                  variant: "destructive",
+                });
+              }
+              
               noFaceStartTime = now; // Reset to avoid spam
             }
           } else if (predictions.length > 1) {
@@ -398,33 +425,43 @@ export default function ExamSessionPage({
       if (document.hidden) {
         logProctorEvent("tab_switch", "high");
         
-        // Start 10-second countdown
-        setTabSwitchTimer(10);
-        
-        toast({
-          title: "Warning: Return to Exam",
-          description: "You will be automatically logged out in 10 seconds if you don't return to this tab.",
-          variant: "destructive",
-        });
-
-        // Clear any existing timeout
-        if (tabSwitchTimeoutRef.current) {
-          clearTimeout(tabSwitchTimeoutRef.current);
-        }
-
-        // Set 10-second auto-logout
-        tabSwitchTimeoutRef.current = setTimeout(() => {
+        // Only enforce auto-logout if proctoring mode is "enforce"
+        if (sessionData?.proctoringMode === "enforce") {
+          // Start 10-second countdown
+          setTabSwitchTimer(10);
+          
           toast({
-            title: "Exam Terminated",
-            description: "You have been logged out due to leaving the exam tab.",
+            title: "Warning: Return to Exam",
+            description: "You will be automatically logged out in 10 seconds if you don't return to this tab.",
             variant: "destructive",
           });
-          setTimeout(() => {
-            submitMutation.mutate();
-          }, 2000);
-        }, 10000);
+
+          // Clear any existing timeout
+          if (tabSwitchTimeoutRef.current) {
+            clearTimeout(tabSwitchTimeoutRef.current);
+          }
+
+          // Set 10-second auto-logout
+          tabSwitchTimeoutRef.current = setTimeout(() => {
+            toast({
+              title: "Exam Terminated",
+              description: "You have been logged out due to leaving the exam tab.",
+              variant: "destructive",
+            });
+            setTimeout(() => {
+              submitMutation.mutate();
+            }, 2000);
+          }, 10000);
+        } else {
+          // For monitor_only and negative_marking, just show a warning toast
+          toast({
+            title: "Tab Switch Detected",
+            description: "You switched tabs. This has been logged.",
+            variant: "destructive",
+          });
+        }
       } else {
-        // Tab is visible again - cancel logout
+        // Tab is visible again - cancel logout if enforce mode
         if (tabSwitchTimeoutRef.current) {
           clearTimeout(tabSwitchTimeoutRef.current);
           tabSwitchTimeoutRef.current = null;
@@ -444,7 +481,7 @@ export default function ExamSessionPage({
         clearTimeout(tabSwitchTimeoutRef.current);
       }
     };
-  }, []);
+  }, [sessionData?.proctoringMode]);
 
   // Update tab switch countdown timer
   useEffect(() => {

@@ -896,6 +896,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         candidateId: candidate.id,
         examTitle: exam.title,
         duration: exam.duration,
+        proctoringMode: exam.proctoringMode || "enforce",
+        enableWebcam: exam.enableWebcam,
+        enableTabDetection: exam.enableTabDetection,
         questions: selectedQuestions,
         randomizedQuestions,
         responses,
@@ -962,7 +965,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const responses = await storage.getResponses(candidateId);
       const correctCount = responses.filter(r => r.isCorrect).length;
       const totalCount = responses.length;
-      const score = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+      let score = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+
+      // Apply negative marking if proctoring mode is "negative_marking"
+      const exam = await storage.getExam(candidate.examId);
+      if (exam?.proctoringMode === "negative_marking") {
+        const logs = await storage.getProctorLogs();
+        const candidateLogs = logs.filter(log => log.candidateId === candidateId);
+        
+        // Count high severity violations
+        const highSeverityViolations = candidateLogs.filter(log => 
+          log.severity === "high" && 
+          ["face_absent", "multiple_faces", "fullscreen_exit", "tab_switch"].includes(log.eventType)
+        ).length;
+        
+        // Deduct 1 point per high severity violation
+        score = Math.max(0, score - highSeverityViolations);
+      }
 
       // Update candidate
       await storage.updateCandidate(candidateId, {

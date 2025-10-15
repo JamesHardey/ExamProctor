@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Candidate, Exam } from "@shared/schema";
 import { useLocation } from "wouter";
@@ -10,12 +11,33 @@ interface CandidateWithExam extends Candidate {
   exam?: Exam;
 }
 
+interface ProctorLog {
+  id: number;
+  candidateId: number;
+  eventType: string;
+  severity: string;
+  timestamp: string;
+}
+
 export default function ExamResults({ candidateId }: { candidateId: number }) {
   const [, setLocation] = useLocation();
 
   const { data: candidate, isLoading } = useQuery<CandidateWithExam>({
     queryKey: ["/api/candidates", candidateId],
   });
+
+  const { data: allLogs } = useQuery<ProctorLog[]>({
+    queryKey: ["/api/proctor-logs"],
+  });
+
+  // Filter logs for this candidate
+  const candidateLogs = allLogs?.filter(log => log.candidateId === candidateId) || [];
+  
+  // Count high severity violations for negative marking
+  const highSeverityViolations = candidateLogs.filter(log => 
+    log.severity === "high" && 
+    ["face_absent", "multiple_faces", "fullscreen_exit", "tab_switch"].includes(log.eventType)
+  ).length;
 
   if (isLoading) {
     return (
@@ -82,6 +104,27 @@ export default function ExamResults({ candidateId }: { candidateId: number }) {
             </p>
           )}
         </div>
+
+        {showResults && exam?.proctoringMode === "negative_marking" && highSeverityViolations > 0 && (
+          <div className="bg-destructive/10 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6 border border-destructive/20">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm sm:text-base font-medium text-destructive mb-1">
+                  Negative Marking Applied
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-2">
+                  {highSeverityViolations} high severity violation{highSeverityViolations > 1 ? 's' : ''} detected
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-destructive border-destructive/30">
+                    -{highSeverityViolations} point{highSeverityViolations > 1 ? 's' : ''} deducted
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showResults && candidate.completedAt && (
           <div className="bg-muted/50 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
