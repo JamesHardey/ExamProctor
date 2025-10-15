@@ -1132,30 +1132,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const activeSessions = candidates.filter(c => c.status === "in_progress");
 
+      // Auto-expire stale sessions and prepare response
       const sessionsWithDetails = await Promise.all(
         activeSessions.map(async (candidate) => {
           const user = await storage.getUser(candidate.userId);
           const exam = await storage.getExam(candidate.examId);
           
-          // Calculate time remaining
-          let timeRemaining = null;
+          // Check if session has expired
           if (candidate.startedAt && exam?.duration) {
             const startTime = new Date(candidate.startedAt).getTime();
             const currentTime = Date.now();
             const elapsedMinutes = (currentTime - startTime) / (1000 * 60);
+            
+            // If elapsed time exceeds exam duration by more than 5 minutes, mark as auto-submitted (expired)
+            if (elapsedMinutes > exam.duration + 5) {
+              await storage.updateCandidate(candidate.id, { status: "auto_submitted" });
+              return null; // Exclude from active sessions
+            }
+            
             const remainingMinutes = Math.max(0, exam.duration - elapsedMinutes);
             
             // Format as MM:SS
             const minutes = Math.floor(remainingMinutes);
             const seconds = Math.floor((remainingMinutes - minutes) * 60);
-            timeRemaining = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            const timeRemaining = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            return { ...candidate, user, exam, timeRemaining };
           }
           
-          return { ...candidate, user, exam, timeRemaining };
+          return { ...candidate, user, exam, timeRemaining: null };
         })
       );
 
-      res.json(sessionsWithDetails);
+      // Filter out null entries (expired sessions)
+      const validSessions = sessionsWithDetails.filter(s => s !== null);
+
+      res.json(validSessions);
     } catch (error) {
       console.error("Error fetching active sessions:", error);
       res.status(500).json({ message: "Failed to fetch active sessions" });
