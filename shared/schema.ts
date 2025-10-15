@@ -87,6 +87,7 @@ export const exams = pgTable("exams", {
   status: varchar("status", { enum: ["draft", "active", "inactive"] }).notNull().default("draft"),
   enableWebcam: boolean("enable_webcam").notNull().default(true),
   enableTabDetection: boolean("enable_tab_detection").notNull().default(true),
+  proctoringMode: varchar("proctoring_mode", { enum: ["enforce", "monitor_only", "negative_marking"] }).notNull().default("enforce"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
