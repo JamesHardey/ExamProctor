@@ -1,6 +1,45 @@
-node_modules
-dist
-.DS_Store
+# Dependencies
+node_modules/
+.npm
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.staging
+
+# Build outputs
+dist/
+build/
+.vercel/
 server/public
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary folders
+tmp/
+temp/
+
+# Scripts (contains sensitive data)
+scripts/seed-admin.ts
+scripts/debug-data.ts
+scripts/test-db.ts
+
+# Vite
 vite.config.ts.*
 *.tar.gz
