@@ -86,10 +86,10 @@ export default function ExamResults({ candidateId }: { candidateId: number }) {
           {showResults ? (
             <>
               <p className="text-3xl sm:text-4xl font-bold mb-2" data-testid="text-score">
-                {candidate.score}%
+                {candidate.score !== null && candidate.score !== undefined ? `${candidate.score}%` : 'N/A'}
               </p>
               <p className="text-sm sm:text-base text-muted-foreground" data-testid="text-result-message">
-                {candidate.score && candidate.score >= 70 
+                {candidate.score !== null && candidate.score !== undefined && candidate.score >= 70 
                   ? "Congratulations! You passed the exam."
                   : "You did not pass this time. Keep practicing!"}
               </p>

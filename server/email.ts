@@ -5,7 +5,7 @@ const SMTP_HOST = process.env.SMTP_HOST || "";
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
 const SMTP_USER = process.env.SMTP_USER || "";
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || "";
-const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "noreply@wokkahcbt.com";
+const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || "noreply@stenhub.net";
 
 // Create transporter only if SMTP credentials are provided
 let transporter: nodemailer.Transporter | null = null;

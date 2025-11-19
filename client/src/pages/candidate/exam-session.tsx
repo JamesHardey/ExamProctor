@@ -525,6 +525,10 @@ export default function ExamSessionPage({
       return await apiRequest("POST", `/api/exam-session/${candidateId}/submit`, {});
     },
     onSuccess: () => {
+      // Invalidate candidate query to fetch updated score
+      queryClient.invalidateQueries({ queryKey: ["/api/candidates", candidateId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-exams"] });
+      
       toast({
         title: "Success",
         description: "Exam submitted successfully",
